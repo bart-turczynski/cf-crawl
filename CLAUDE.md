@@ -4,32 +4,32 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A CLI tool that crawls and scrapes the Tidio website using the **Cloudflare Browser Rendering API**. Written in vanilla JavaScript (ESM, Node.js), single-file architecture in `index.js`. Shell script equivalents live in `scripts/`.
+A CLI tool that crawls and scrapes any website using the **Cloudflare Browser Rendering API**. Written in vanilla JavaScript (ESM, Node.js), single-file architecture in `index.js`. Shell script equivalents live in `scripts/`.
 
 ## Commands
 
 ```bash
-# Install dependencies
 npm install
 
-# Crawl entire site (async job, polls until complete — can take minutes)
-npm run crawl              # full browser-rendered crawl (billed)
-npm run crawl:fast         # HTML-only, no rendering (free during beta)
-npm run crawl:full         # HTML-only, 5000-page limit
+# Crawl a website (async job, polls until complete)
+node index.js crawl <url>                    # fast HTML-only (default)
+node index.js crawl <url> --render           # full browser rendering (billed)
+node index.js crawl <url> --limit 500        # cap at 500 pages
 
 # Scrape a single page (synchronous)
-npm run scrape
+node index.js scrape <url>
 
-# Direct CLI usage with options
-node index.js crawl [url] [--no-render] [--limit N] [--max_depth N]
-node index.js scrape [url]
+# npm script shortcuts (pass URL after --)
+npm run crawl -- <url>
+npm run crawl:render -- <url>
+npm run scrape -- <url>
 ```
 
 ## Architecture
 
-- **`index.js`** — Entire application: CLI parser, Cloudflare API client (`cfFetch`), crawl logic (async job + polling), scrape logic (synchronous), and output handling. Default target is `https://www.tidio.com/`.
-- **`scripts/`** — Standalone bash equivalents (`crawl.sh`, `scrape.sh`) using `curl` + `jq`. Same API, useful for quick one-off runs.
-- **`output/`** — JSON results saved with timestamps (gitignored).
+- **`index.js`** — Entire application: CLI parser, Cloudflare API client (`cfFetch` with retry logic), crawl (async job + polling + cursor pagination), scrape (synchronous), and output handling.
+- **`scripts/`** — Standalone bash equivalents (`crawl.sh`, `scrape.sh`) using `curl` + `jq`.
+- **`output/`** — JSON results saved as `crawl_{hostname}_{timestamp}.json` or `scrape_{slug}_{timestamp}.json` (gitignored).
 
 ## Environment
 
@@ -39,8 +39,14 @@ Requires `.env` with Cloudflare credentials (see `.env.example`):
 
 ## Key Details
 
-- ESM modules (`"type": "module"` in package.json) — use `import`, not `require`
+- ESM modules (`"type": "module"`) — use `import`, not `require`
 - Only dependency is `dotenv`
-- Crawl jobs are async: POST to `/crawl`, then poll `/crawl/{jobId}` with cursor-based pagination for results
+- Default mode is fast HTML-only (no rendering, free during beta). Use `--render` to opt in to full browser rendering (billed at $0.09/browser hour)
+- Crawl jobs are async: POST to `/crawl`, then poll `/crawl/{jobId}` every 15s with cursor-based pagination for results. Max poll time ~60 minutes
 - Scrape is synchronous: single POST to `/scrape` returns immediately
-- The `--no-render` flag switches from billed browser rendering to free HTML-only fetch
+- `cfFetch` retries transient network errors up to 3 times with 5s delay
+- Crawl results persist on Cloudflare for 14 days after job completion
+
+## Conventions
+
+- Always update `CHANGELOG.md` when making changes to the codebase
