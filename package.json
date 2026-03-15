@@ -1,0 +1,14 @@
+{
+  "name": "tidio-crawl",
+  "version": "1.0.0",
+  "description": "Crawl and scrape the Tidio website using Cloudflare Browser Rendering API",
+  "type": "module",
+  "scripts": {
+    "crawl": "node index.js crawl",
+    "crawl:render": "node index.js crawl --render",
+    "scrape": "node index.js scrape"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.0"
+  }
+}
