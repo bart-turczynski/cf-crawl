@@ -5,8 +5,13 @@ All notable changes to this project will be documented in this file.
 ## [1.1.0] - 2026-03-17
 
 ### Added
-- Support for multiple URLs in a single command (crawled/scraped sequentially)
+- Support for multiple URLs in a single command
 - Auto-prepend `https://` for bare domain URLs (e.g., `www.example.com`)
+
+### Changed
+- Multiple URLs are now crawled/scraped in parallel using `Promise.allSettled`
+- Log output prefixed with `[hostname]` tags for readable parallel output
+- Crawl/scrape errors no longer `process.exit(1)` — failures are reported per-URL without aborting other jobs
 
 ## [1.0.0] - 2026-03-15
 

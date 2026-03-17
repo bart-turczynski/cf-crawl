@@ -92,9 +92,9 @@ function sleep(ms) {
 // ---------------------------------------------------------------------------
 
 async function crawl(startUrl, render = false, { limit = 100_000 } = {}) {
-  console.log(`\nStarting crawl: ${startUrl}`);
-  console.log(`Render mode: ${render ? "full browser (billed)" : "fast HTML (free beta)"}`);
-  console.log(`Limit: ${limit}\n`);
+  const tag = `[${new URL(startUrl).hostname}]`;
+  console.log(`\n${tag} Starting crawl: ${startUrl}`);
+  console.log(`${tag} Render: ${render ? "full browser (billed)" : "fast HTML (free beta)"} | Limit: ${limit}`);
 
   // Kick off
   const body = { url: startUrl, render, limit };
@@ -107,11 +107,11 @@ async function crawl(startUrl, render = false, { limit = 100_000 } = {}) {
     ? job.result
     : (job.result?.id ?? job.result?.jobId);
   if (!jobId) {
-    console.error("No job ID returned:", JSON.stringify(job, null, 2));
-    process.exit(1);
+    console.error(`${tag} No job ID returned:`, JSON.stringify(job, null, 2));
+    return { error: "no_job_id", url: startUrl };
   }
 
-  console.log(`Job ID: ${jobId}`);
+  console.log(`${tag} Job ID: ${jobId}`);
 
   // Poll
   for (let i = 1; i <= MAX_POLL_ATTEMPTS; i++) {
@@ -119,7 +119,7 @@ async function crawl(startUrl, render = false, { limit = 100_000 } = {}) {
     const status = result.result?.status ?? "unknown";
 
     if (["completed", "done", "finished"].includes(status)) {
-      console.log("\nCrawl complete! Fetching all pages...");
+      console.log(`${tag} Crawl complete! Fetching all pages...`);
       const r = result.result;
       const total = r?.finished ?? r?.total ?? 0;
       const skipped = r?.skipped ?? 0;
@@ -129,7 +129,7 @@ async function crawl(startUrl, render = false, { limit = 100_000 } = {}) {
       let cursor = r?.cursor;
 
       while (cursor && allRecords.length < total) {
-        process.stdout.write(`\r  Fetching records: ${allRecords.length} / ${total}   `);
+        console.log(`${tag} Fetching records: ${allRecords.length} / ${total}`);
         const page = await cfFetch(`/crawl/${jobId}?cursor=${cursor}`);
         const pageRecords = page.result?.records ?? [];
         if (pageRecords.length === 0) break;
@@ -137,8 +137,8 @@ async function crawl(startUrl, render = false, { limit = 100_000 } = {}) {
         cursor = page.result?.cursor;
       }
 
-      console.log(`\nPages fetched: ${allRecords.length} | Skipped: ${skipped} | Total discovered: ${total + skipped}`);
-      if (r?.browserSecondsUsed != null) console.log(`Browser seconds used: ${r.browserSecondsUsed}`);
+      console.log(`${tag} Pages fetched: ${allRecords.length} | Skipped: ${skipped} | Total discovered: ${total + skipped}`);
+      if (r?.browserSecondsUsed != null) console.log(`${tag} Browser seconds used: ${r.browserSecondsUsed}`);
 
       // Save full result with all records
       const fullResult = { ...result, result: { ...r, records: allRecords } };
@@ -148,17 +148,17 @@ async function crawl(startUrl, render = false, { limit = 100_000 } = {}) {
     }
 
     if (["failed", "error"].includes(status)) {
-      console.error("Crawl failed:", JSON.stringify(result.result, null, 2));
-      process.exit(1);
+      console.error(`${tag} Crawl failed:`, JSON.stringify(result.result, null, 2));
+      return { error: "crawl_failed", url: startUrl, result: result.result };
     }
 
     const progress = result.result?.pagesProcessed ?? result.result?.progress ?? "in progress";
-    process.stdout.write(`\r  Poll ${i}/${MAX_POLL_ATTEMPTS} — status: ${status} | progress: ${progress}   `);
+    console.log(`${tag} Poll ${i}/${MAX_POLL_ATTEMPTS} — status: ${status} | progress: ${progress}`);
     await sleep(POLL_INTERVAL_MS);
   }
 
-  console.error(`\nTimed out. Job ID for manual check: ${jobId}`);
-  process.exit(1);
+  console.error(`${tag} Timed out. Job ID for manual check: ${jobId}`);
+  return { error: "timeout", url: startUrl, jobId };
 }
 
 // ---------------------------------------------------------------------------
@@ -166,7 +166,8 @@ async function crawl(startUrl, render = false, { limit = 100_000 } = {}) {
 // ---------------------------------------------------------------------------
 
 async function scrape(targetUrl) {
-  console.log(`\nScraping: ${targetUrl}\n`);
+  const tag = `[${new URL(targetUrl).hostname}]`;
+  console.log(`\n${tag} Scraping: ${targetUrl}`);
 
   const result = await cfFetch("/scrape", {
     method: "POST",
@@ -188,10 +189,10 @@ async function scrape(targetUrl) {
 
   // Quick summary
   const results = result.result ?? [];
-  console.log("=== Summary ===");
+  console.log(`${tag} === Summary ===`);
   for (const group of results) {
     const count = group.results?.length ?? 0;
-    console.log(`  ${group.selector}: ${count} element(s)`);
+    console.log(`${tag}   ${group.selector}: ${count} element(s)`);
   }
 
   const slug = targetUrl.replace(/https?:\/\//, "").replace(/\//g, "_").replace(/_$/, "");
@@ -235,20 +236,29 @@ switch (command) {
     const opts = {};
     if (limitArg) opts.limit = limitArg;
     if (max_depthArg) opts.max_depth = max_depthArg;
-    for (const url of targetUrls) {
-      await crawl(url, doRender, opts);
+    console.log(`\nCrawling ${targetUrls.length} URL(s) in parallel...\n`);
+    const results = await Promise.allSettled(targetUrls.map((url) => crawl(url, doRender, opts)));
+    const failed = results.filter((r) => r.status === "rejected" || r.value?.error);
+    if (failed.length) {
+      console.error(`\n${failed.length} crawl(s) failed.`);
     }
+    console.log(`\nAll ${targetUrls.length} crawl(s) finished.`);
     break;
   }
-  case "scrape":
+  case "scrape": {
     if (targetUrls.length === 0) {
       console.error("Error: URL is required.\nUsage: node index.js scrape <url> [<url2> ...]");
       process.exit(1);
     }
-    for (const url of targetUrls) {
-      await scrape(url);
+    console.log(`\nScraping ${targetUrls.length} URL(s) in parallel...\n`);
+    const results = await Promise.allSettled(targetUrls.map((url) => scrape(url)));
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length) {
+      console.error(`\n${failed.length} scrape(s) failed.`);
     }
+    console.log(`\nAll ${targetUrls.length} scrape(s) finished.`);
     break;
+  }
   default:
     console.log(`
 Usage:
