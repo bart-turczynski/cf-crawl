@@ -213,42 +213,58 @@ function flagValue(name) {
 
 const limitArg = flagValue("--limit");
 const max_depthArg = flagValue("--max_depth");
-const urlArg = rest.find((a) => !a.startsWith("--") && isNaN(Number(a)) !== false && a.startsWith("http"));
-const targetUrl = urlArg || DEFAULT_URL;
+
+function normalizeUrl(raw) {
+  if (!/^https?:\/\//i.test(raw)) return `https://${raw}`;
+  return raw;
+}
+
+const urlArgs = rest
+  .filter((a) => !a.startsWith("--") && !(rest[rest.indexOf(a) - 1]?.startsWith("--") && !isNaN(Number(a))))
+  .filter((a) => isNaN(Number(a)))
+  .map(normalizeUrl);
+
+const targetUrls = urlArgs.length ? urlArgs : DEFAULT_URL ? [DEFAULT_URL] : [];
 
 switch (command) {
   case "crawl": {
-    if (!targetUrl) {
-      console.error("Error: URL is required.\nUsage: node index.js crawl <url> [--render] [--limit N]");
+    if (targetUrls.length === 0) {
+      console.error("Error: URL is required.\nUsage: node index.js crawl <url> [<url2> ...] [--render] [--limit N]");
       process.exit(1);
     }
     const opts = {};
     if (limitArg) opts.limit = limitArg;
     if (max_depthArg) opts.max_depth = max_depthArg;
-    await crawl(targetUrl, doRender, opts);
+    for (const url of targetUrls) {
+      await crawl(url, doRender, opts);
+    }
     break;
   }
   case "scrape":
-    if (!targetUrl) {
-      console.error("Error: URL is required.\nUsage: node index.js scrape <url>");
+    if (targetUrls.length === 0) {
+      console.error("Error: URL is required.\nUsage: node index.js scrape <url> [<url2> ...]");
       process.exit(1);
     }
-    await scrape(targetUrl);
+    for (const url of targetUrls) {
+      await scrape(url);
+    }
     break;
   default:
     console.log(`
 Usage:
-  node index.js crawl <url> [--render]        Crawl entire site (async)
-  node index.js scrape <url>                  Scrape single page (sync)
+  node index.js crawl <url> [<url2> ...] [--render]   Crawl site(s) (async)
+  node index.js scrape <url> [<url2> ...]              Scrape page(s) (sync)
 
 Options:
   --render       Use full browser rendering (billed; default is fast HTML-only)
   --limit N      Max pages to crawl (default: 100000)
   --max_depth N  Max link depth to follow
 
+URLs can be passed with or without https:// prefix.
+
 Examples:
   node index.js crawl https://example.com
-  node index.js crawl https://example.com/blog --render --limit 100
+  node index.js crawl example.com blog.example.com --render --limit 100
   node index.js scrape https://example.com/pricing
     `);
 }

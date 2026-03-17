@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.0] - 2026-03-17
+
+### Added
+- Support for multiple URLs in a single command (crawled/scraped sequentially)
+- Auto-prepend `https://` for bare domain URLs (e.g., `www.example.com`)
+
 ## [1.0.0] - 2026-03-15
 
 ### Added
