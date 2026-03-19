@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# DEPRECATED: This is a reference implementation that may lack feature parity
+# with the JS CLI. Prefer: node index.js crawl <url>
+#
 # crawl.sh — Crawl a website using Cloudflare Browser Rendering /crawl
 #
 # Usage:

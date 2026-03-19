@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# DEPRECATED: This is a reference implementation that may lack feature parity
+# with the JS CLI. Prefer: node index.js scrape <url>
+#
 # scrape.sh — Scrape specific elements from a page using /scrape
 #
 # Usage:
