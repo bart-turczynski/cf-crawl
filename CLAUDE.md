@@ -11,18 +11,21 @@ A CLI tool that crawls and scrapes any website using the **Cloudflare Browser Re
 ```bash
 npm install
 
-# Crawl a website (async job, polls until complete)
-node index.js crawl <url>                    # fast HTML-only (default)
-node index.js crawl <url> --render           # full browser rendering (billed)
-node index.js crawl <url> --limit 500        # cap at 500 pages
+# Crawl websites (async jobs, polls until complete, parallel)
+node index.js crawl <url> [<url2> ...]               # fast HTML-only (default)
+node index.js crawl <url> [<url2> ...] --render       # full browser rendering (billed)
+node index.js crawl <url> [<url2> ...] --limit 500    # cap at 500 pages per site
 
-# Scrape a single page (synchronous)
-node index.js scrape <url>
+# Scrape pages (synchronous, parallel)
+node index.js scrape <url> [<url2> ...]
+
+# URLs work with or without https:// prefix
+node index.js crawl www.example.com www.other.com
 
 # npm script shortcuts (pass URL after --)
-npm run crawl -- <url>
-npm run crawl:render -- <url>
-npm run scrape -- <url>
+npm run crawl -- <url> [<url2> ...]
+npm run crawl:render -- <url> [<url2> ...]
+npm run scrape -- <url> [<url2> ...]
 ```
 
 ## Architecture

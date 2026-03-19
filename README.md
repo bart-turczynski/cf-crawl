@@ -16,39 +16,42 @@ You need:
 
 ## Usage
 
-### Crawl an entire site
+### Crawl sites
 
 ```bash
-node index.js crawl <url> [options]
+node index.js crawl <url> [<url2> ...] [options]
 ```
+
+Multiple URLs are crawled **in parallel**. URLs can be passed with or without `https://` prefix.
 
 Options:
 - `--render` — Use full browser rendering (billed at $0.09/hr). Default is fast HTML-only fetch (free during beta)
-- `--limit N` — Max pages to crawl (default: 100,000)
+- `--limit N` — Max pages to crawl per site (default: 100,000)
 - `--max_depth N` — Max link depth to follow
 
 Examples:
 ```bash
 node index.js crawl https://example.com
-node index.js crawl https://example.com --render --limit 1000
+node index.js crawl example.com blog.example.com --render --limit 100
+node index.js crawl www.site1.com www.site2.com www.site3.com --limit 1
 ```
 
 Crawl jobs run asynchronously on Cloudflare. The CLI polls for results and saves them when complete. Results are available on Cloudflare for 14 days after completion.
 
-### Scrape a single page
+### Scrape pages
 
 ```bash
-node index.js scrape <url>
+node index.js scrape <url> [<url2> ...]
 ```
 
-Extracts titles, headings, paragraphs, links, images, and meta descriptions from a single page.
+Extracts titles, headings, paragraphs, links, images, and meta descriptions. Multiple URLs are scraped **in parallel**.
 
 ### npm scripts
 
 ```bash
-npm run crawl -- <url>            # fast HTML-only
-npm run crawl:render -- <url>     # full browser rendering
-npm run scrape -- <url>
+npm run crawl -- <url> [<url2> ...]       # fast HTML-only
+npm run crawl:render -- <url> [<url2> ...]  # full browser rendering
+npm run scrape -- <url> [<url2> ...]
 ```
 
 ## Output
