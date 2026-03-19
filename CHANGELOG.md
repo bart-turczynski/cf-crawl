@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2026-03-19
+
+### Added
+- **Test suite** — 53 unit tests across 7 test files using vitest, covering all modules:
+  - `errors.js` — CrawlError/ApiError construction, retryable flag, inheritance
+  - `utils.js` — sleep, backoffDelay, timestamp, normalizeUrl, runConcurrent
+  - `config.js` — status sets, defaults shape, validateEnv
+  - `output.js` — ensureOutputDir caching, writeFile for small results, streaming for large
+  - `job-log.js` — logJob, readJobLog, updateJobLog
+  - `cli.js` — job tracking, usage output, command dispatch, input validation
+  - `api-client.js` — cfFetch retries, backoff, rate limiting, error handling
+- Added `vitest` as dev dependency
+
+## [2.0.0] - 2026-03-19
+
+### Changed
+- **Modularized architecture** — Decomposed 700-line `index.js` into 12 focused modules under `src/` with a thin 5-line entry point
+- **Parallel polling** — `pollCrawlJobs` fires all job status checks per tick with `Promise.allSettled` instead of sequential `for...of` (N jobs: 1 RTT per tick instead of N)
+- **One-time mkdir** — `ensureOutputDir()` caches the mkdir promise, eliminating redundant syscalls on every save/log call
+- **Status constants** — Replaced repeated `["completed", "done", "finished"]` arrays with `COMPLETED_STATUSES` / `FAILED_STATUSES` Sets in `config.js`
+- **Consolidated single/multi-URL duplication** — Extracted shared `runConcurrent()` utility for `Promise.allSettled` + summary printing
+- **Input validation at the boundary** — URL normalization and limit/depth validation moved to `cli.js` so business functions receive clean inputs
+- Shell scripts (`scripts/crawl.sh`, `scripts/scrape.sh`) marked as deprecated reference implementations
+
+### Added
+- **Graceful shutdown** — `SIGINT` handler in `cli.js` logs active job IDs, updates job log with "interrupted" status, and prints resume commands
+- `runConcurrent()` utility for deduplicating multi-URL execution logic
+
 ## [1.3.0] - 2026-03-17
 
 ### Added
