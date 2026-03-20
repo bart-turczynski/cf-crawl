@@ -1,3 +1,8 @@
 .env
 node_modules/
 output/
+
+# Claude Cowork
+.claude/
+
+.DS_Store
