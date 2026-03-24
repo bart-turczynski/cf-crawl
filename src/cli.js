@@ -135,14 +135,13 @@ export async function main() {
 
   switch (command) {
     case "crawl": {
-      const urls = positionals;
-      if (urls.length === 0) {
+      if (positionals.length === 0) {
         console.error("Error: URL is required.\nUsage: node index.js crawl <url> [url2 ...] [--render] [--limit N] [--no-wait]");
         process.exit(1);
       }
 
-      // Validate inputs at the boundary
-      validateUrls(urls);
+      // Validate and normalize inputs at the boundary
+      const urls = validateUrls(positionals);
       validateLimit(flags);
       validateDepth(flags);
 
@@ -160,7 +159,7 @@ export async function main() {
           console.log(`  node index.js status ${jobId}`);
           console.log(`  node index.js download ${jobId}`);
         } else {
-          const { results, failures } = await pollCrawlJobs([{ jobId, url: normalizeUrl(urls[0]) }]);
+          const { results, failures } = await pollCrawlJobs([{ jobId, url: urls[0] }]);
           untrackJob(jobId);
           if (failures.length > 0) {
             throw new CrawlError(failures[0].error);
@@ -233,14 +232,13 @@ export async function main() {
       break;
     }
     case "scrape": {
-      const urls = positionals;
-      if (urls.length === 0) {
+      if (positionals.length === 0) {
         console.error("Error: URL is required.\nUsage: node index.js scrape <url> [url2 ...] [--render] [--wait N]");
         process.exit(1);
       }
 
-      // Validate inputs at the boundary
-      validateUrls(urls);
+      // Validate and normalize inputs at the boundary
+      const urls = validateUrls(positionals);
 
       const scrapeOpts = {};
       if (flags.render) scrapeOpts.render = true;

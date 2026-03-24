@@ -132,7 +132,7 @@ describe("cli", () => {
       await main();
 
       expect(submitCrawl).toHaveBeenCalledWith(
-        "example.com",
+        "https://example.com/",
         false,
         expect.any(Object),
       );
@@ -150,7 +150,7 @@ describe("cli", () => {
 
       await main();
 
-      expect(scrape).toHaveBeenCalledWith("https://example.com", expect.any(Object));
+      expect(scrape).toHaveBeenCalledWith("https://example.com/", expect.any(Object));
     });
   });
 });
