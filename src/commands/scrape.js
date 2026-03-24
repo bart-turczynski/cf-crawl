@@ -7,7 +7,7 @@ import { cfFetch } from "../api-client.js";
 import { saveResult } from "../output.js";
 
 export const DEFAULT_SELECTORS = [
-  { selector: "title" },
+  { selector: "head > title" },
   { selector: "meta[name='description']" },
   { selector: "h1" },
   { selector: "h2" },
