@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.1] - 2026-03-24
+
+### Fixed
+
+- Fixed cf-crawl skill command to use `npm run` scripts instead of non-existent `node index.js`
+- Added missing `status`, `download`, and `jobs` npm scripts to `package.json`
+- Updated `CLAUDE.md` to document all available npm scripts
+
 ## [3.0.0] - 2026-03-24
 
 ### Changed
