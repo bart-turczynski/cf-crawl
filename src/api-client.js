@@ -8,14 +8,14 @@ import { sleep, backoffDelay } from "./utils.js";
 
 export async function cfFetch(path, options = {}, retryOpts = {}) {
   const { maxAttempts, baseDelayMs, maxDelayMs } = { ...RETRY_DEFAULTS, ...retryOpts };
-  const url = `${API_BASE}${path}`;
+  const url = `${API_BASE()}${path}`;
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const res = await fetch(url, {
         ...options,
         headers: {
-          Authorization: `Bearer ${CF_API_TOKEN}`,
+          Authorization: `Bearer ${CF_API_TOKEN()}`,
           "Content-Type": "application/json",
           ...options.headers,
         },

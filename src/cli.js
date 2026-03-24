@@ -57,7 +57,9 @@ function parseArgs(argv) {
   const positionals = [];
 
   for (let i = 1; i < args.length; i++) {
-    if (args[i].startsWith("--")) {
+    if (args[i] === "-h") {
+      flags.help = true;
+    } else if (args[i].startsWith("--")) {
       const key = args[i].slice(2);
       const next = args[i + 1];
       if (next && !next.startsWith("--")) {
@@ -128,10 +130,15 @@ function validateDepth(flags) {
 // ---------------------------------------------------------------------------
 
 export async function main() {
+  const { command, flags, positionals } = parseArgs(process.argv);
+
+  if (!command || flags.help) {
+    printUsage();
+    return;
+  }
+
   validateEnv();
   setupSigintHandler();
-
-  const { command, flags, positionals } = parseArgs(process.argv);
 
   switch (command) {
     case "crawl": {

@@ -75,9 +75,8 @@ describe("config", () => {
       delete process.env.CF_ACCOUNT_ID;
       delete process.env.CF_API_TOKEN;
 
-      // Re-import to pick up cleared env — but validateEnv reads the
-      // module-level CF_ACCOUNT_ID/CF_API_TOKEN which were captured at
-      // import time. We need a fresh module.
+      // validateEnv reads process.env directly (lazy), but reset modules
+      // for a clean import.
       vi.resetModules();
       const { validateEnv } = await import("../src/config.js");
       validateEnv();

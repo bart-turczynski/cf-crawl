@@ -20,6 +20,11 @@ You need:
 
 ## Usage
 
+```
+node index.js --help
+node index.js -h
+```
+
 ### Crawl sites
 
 ```bash
@@ -32,12 +37,15 @@ Options:
 - `--render` — Use full browser rendering (billed at $0.09/hr). Default is fast HTML-only fetch (free during beta)
 - `--limit N` — Max pages to crawl per site (default: 100,000)
 - `--max_depth N` — Max link depth to follow
+- `--no-wait` — Submit job(s) and exit without polling (fire-and-forget)
+- `--help`, `-h` — Show usage information
 
 Examples:
 ```bash
 node index.js crawl https://example.com
 node index.js crawl example.com blog.example.com --render --limit 100
 node index.js crawl www.site1.com www.site2.com www.site3.com --limit 1
+node index.js crawl site.com --no-wait
 ```
 
 Crawl jobs run asynchronously on Cloudflare. The CLI polls for results and saves them when complete. Results are available on Cloudflare for 14 days after completion.
@@ -45,10 +53,22 @@ Crawl jobs run asynchronously on Cloudflare. The CLI polls for results and saves
 ### Scrape pages
 
 ```bash
-node index.js scrape <url> [<url2> ...]
+node index.js scrape <url> [<url2> ...] [options]
 ```
 
 Extracts titles, headings, paragraphs, links, images, and meta descriptions. Multiple URLs are scraped **in parallel**.
+
+Options:
+- `--render` — Use full browser rendering
+- `--wait N` — Wait N ms for page to load
+
+### Manage jobs
+
+```bash
+node index.js status <jobId>     # Check crawl job status
+node index.js download <jobId>   # Download results for a job
+node index.js jobs               # List all logged jobs
+```
 
 ### npm scripts
 

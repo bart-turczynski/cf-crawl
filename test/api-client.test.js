@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../src/config.js", () => ({
-  API_BASE: "https://api.test.com/v4/accounts/test-account/browser-rendering",
-  CF_API_TOKEN: "test-token-123",
+  API_BASE: () => "https://api.test.com/v4/accounts/test-account/browser-rendering",
+  CF_API_TOKEN: () => "test-token-123",
   RETRY_DEFAULTS: { maxAttempts: 3, baseDelayMs: 100, maxDelayMs: 1000 },
 }));
 
