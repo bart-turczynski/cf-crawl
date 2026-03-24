@@ -26,7 +26,11 @@ export function untrackJob(jobId) {
   activeJobIds.delete(jobId);
 }
 
+let sigintRegistered = false;
+
 function setupSigintHandler() {
+  if (sigintRegistered) return;
+  sigintRegistered = true;
   process.on("SIGINT", async () => {
     console.log("\n\nInterrupted by user.");
     if (activeJobIds.size > 0) {
@@ -61,9 +65,10 @@ function parseArgs(argv) {
       flags.help = true;
     } else if (args[i].startsWith("--")) {
       const key = args[i].slice(2);
+      const numericFlags = new Set(["limit", "max_depth", "wait"]);
       const next = args[i + 1];
       if (next && !next.startsWith("--")) {
-        flags[key] = /^\d+$/.test(next) ? Number(next) : next;
+        flags[key] = numericFlags.has(key) && /^\d+$/.test(next) ? Number(next) : next;
         i++;
       } else {
         flags[key] = true;
