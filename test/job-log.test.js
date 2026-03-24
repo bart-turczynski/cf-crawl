@@ -52,7 +52,9 @@ describe("job-log", () => {
 
     it("returns empty array when file does not exist", async () => {
       const { readFile } = await import("node:fs/promises");
-      readFile.mockRejectedValue(new Error("ENOENT: no such file or directory"));
+      const err = new Error("ENOENT: no such file or directory");
+      err.code = "ENOENT";
+      readFile.mockRejectedValue(err);
 
       const { readJobLog } = await import("../src/job-log.js");
       const result = await readJobLog();

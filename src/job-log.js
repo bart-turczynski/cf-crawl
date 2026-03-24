@@ -18,8 +18,9 @@ export async function readJobLog() {
   try {
     const raw = await readFile(JOBS_FILE, "utf-8");
     return raw.trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
-  } catch {
-    return [];
+  } catch (err) {
+    if (err.code === "ENOENT") return [];
+    throw err;
   }
 }
 
