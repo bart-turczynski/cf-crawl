@@ -152,7 +152,7 @@ export async function collectResults(jobId, initialResult, startUrl) {
     const page = await cfFetch(`/crawl/${jobId}?cursor=${cursor}`);
     const pageRecords = page.result?.records ?? [];
     if (pageRecords.length === 0) break;
-    allRecords.push(...pageRecords);
+    allRecords = allRecords.concat(pageRecords);
     cursor = page.result?.cursor;
   }
 
