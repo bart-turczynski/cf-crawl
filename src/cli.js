@@ -148,8 +148,8 @@ export async function main() {
 
       const render = !!flags.render;
       const crawlOpts = {};
-      if (flags.limit) crawlOpts.limit = flags.limit;
-      if (flags.max_depth) crawlOpts.max_depth = flags.max_depth;
+      if (flags.limit != null) crawlOpts.limit = flags.limit;
+      if (flags.max_depth != null) crawlOpts.max_depth = flags.max_depth;
 
       if (urls.length === 1) {
         if (flags["no-wait"]) crawlOpts.wait = false;
