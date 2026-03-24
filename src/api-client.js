@@ -72,4 +72,6 @@ export async function cfFetch(path, options = {}, retryOpts = {}) {
       }
     }
   }
+
+  throw new CrawlError("Unexpected: retry loop exhausted without result");
 }

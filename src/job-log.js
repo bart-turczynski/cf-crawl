@@ -24,6 +24,8 @@ export async function readJobLog() {
   }
 }
 
+// Note: read-modify-write without locking. Concurrent calls (e.g. SIGINT
+// racing with poll loop) can lose updates. Acceptable for a CLI tool.
 export async function updateJobLog(jobId, updates) {
   const entries = await readJobLog();
   let found = false;
