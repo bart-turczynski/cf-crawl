@@ -32,22 +32,38 @@ export async function saveResult(filename, data) {
       ws.on("error", reject);
       ws.on("finish", resolve);
 
-      // Write opening structure
-      const metaJson = JSON.stringify(meta, null, 2);
-      // Insert records array before the closing braces
-      const insertPoint = metaJson.lastIndexOf("}");
-      const before = metaJson.slice(0, insertPoint);
-      ws.write(before);
-      ws.write(`  "records": [\n`);
+      // Build JSON structure explicitly to avoid string-splice errors
+      const { result: resultObj, ...rootRest } = meta;
 
-      for (let i = 0; i < records.length; i++) {
-        const comma = i < records.length - 1 ? "," : "";
-        ws.write(`    ${JSON.stringify(records[i])}${comma}\n`);
+      ws.write(`{\n`);
+
+      // Write root-level keys (success, errors, etc.)
+      const rootKeys = Object.entries(rootRest);
+      for (let k = 0; k < rootKeys.length; k++) {
+        const [key, val] = rootKeys[k];
+        ws.write(`  ${JSON.stringify(key)}: ${JSON.stringify(val)}${k < rootKeys.length - 1 ? "," : ","}\n`);
       }
 
-      ws.write(`  ]\n`);
+      // Open result object
+      ws.write(`  "result": {\n`);
+
+      // Write result-level keys (status, finished, skipped, etc.)
+      const resultKeys = Object.entries(resultObj);
+      for (let k = 0; k < resultKeys.length; k++) {
+        const [key, val] = resultKeys[k];
+        ws.write(`    ${JSON.stringify(key)}: ${JSON.stringify(val)},\n`);
+      }
+
+      // Stream records array
+      ws.write(`    "records": [\n`);
+      for (let i = 0; i < records.length; i++) {
+        const comma = i < records.length - 1 ? "," : "";
+        ws.write(`      ${JSON.stringify(records[i])}${comma}\n`);
+      }
+      ws.write(`    ]\n`);
+
       // Close result object and root object
-      ws.write(`  }\n}`);
+      ws.write(`  }\n}\n`);
       ws.end();
     });
   } else {
