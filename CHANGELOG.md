@@ -2,9 +2,51 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.0.0] - 2026-03-24
+
+### Changed
+
+- **Rewritten in TypeScript** — all source files (`src/`, `index.ts`) and test files (`test/`) converted from JavaScript to TypeScript with strict type checking
+- Shared type definitions in `src/types.ts` (interfaces for API responses, job entries, CLI flags, command options)
+- Build with `tsc` to `dist/`, dev with `tsx` for instant execution
+- Updated `package.json` scripts: `build`, `dev`, `typecheck`, `lint`, `format`, etc.
+
+### Added
+
+- **ESLint** — flat config (`eslint.config.js`) with `typescript-eslint` and `eslint-config-prettier`
+- **Prettier** — consistent formatting with `.prettierrc` (double quotes, semicolons, trailing commas, 100 char width)
+- `tsconfig.json` and `tsconfig.test.json` for build and test type checking
+- `vitest.config.ts` for explicit test configuration
+- New dev dependencies: `typescript`, `tsx`, `@types/node`, `eslint`, `@eslint/js`, `typescript-eslint`, `eslint-config-prettier`, `prettier`
+
+## [2.1.0] - 2026-03-24
+
+### Fixed
+
+- **Streaming JSON writer** — fixed critical bug producing malformed JSON for crawls with >500 records (misplaced `records` array and unbalanced braces)
+- **`--limit 0` and `--max_depth 0` silently ignored** — falsy check dropped valid zero values; now uses `!= null`
+- **`push(...spread)` overflow** — replaced with `concat()` to avoid call stack overflow on large paginated results
+- **Scrape `--render` flag ignored** — the flag was accepted and logged but never sent in the API request body
+- **`readJobLog` swallowed all errors** — now only catches `ENOENT`; permission errors and corruption propagate
+- **`cfFetch` could return `undefined`** — added defensive throw after retry loop exhaustion
+
+### Changed
+
+- **Lazy env config** — `CF_ACCOUNT_ID`, `CF_API_TOKEN`, and `API_BASE` are now getter functions reading `process.env` at call time, not import time
+- **URL normalization at boundary** — `validateUrls` return value is now used; URLs are normalized once in `cli.js` instead of redundantly downstream
+- **Narrower number coercion** — `parseArgs` only coerces `limit`, `max_depth`, and `wait` to numbers (was coercing all digit-only flag values)
+- **SIGINT handler guard** — handler now registers only once even if `main()` is called multiple times
+- **`updateJobLog` race condition** — documented known read-modify-write race (acceptable for CLI)
+
+### Added
+
+- `--help` / `-h` flag — prints usage without requiring env credentials
+- README updated with all commands, options, and `--help` usage
+
 ## [2.0.1] - 2026-03-19
 
 ### Added
+
 - **Test suite** — 53 unit tests across 7 test files using vitest, covering all modules:
   - `errors.js` — CrawlError/ApiError construction, retryable flag, inheritance
   - `utils.js` — sleep, backoffDelay, timestamp, normalizeUrl, runConcurrent
@@ -18,6 +60,7 @@ All notable changes to this project will be documented in this file.
 ## [2.0.0] - 2026-03-19
 
 ### Changed
+
 - **Modularized architecture** — Decomposed 700-line `index.js` into 12 focused modules under `src/` with a thin 5-line entry point
 - **Parallel polling** — `pollCrawlJobs` fires all job status checks per tick with `Promise.allSettled` instead of sequential `for...of` (N jobs: 1 RTT per tick instead of N)
 - **One-time mkdir** — `ensureOutputDir()` caches the mkdir promise, eliminating redundant syscalls on every save/log call
@@ -27,24 +70,28 @@ All notable changes to this project will be documented in this file.
 - Shell scripts (`scripts/crawl.sh`, `scripts/scrape.sh`) marked as deprecated reference implementations
 
 ### Added
+
 - **Graceful shutdown** — `SIGINT` handler in `cli.js` logs active job IDs, updates job log with "interrupted" status, and prints resume commands
 - `runConcurrent()` utility for deduplicating multi-URL execution logic
 
 ## [1.3.0] - 2026-03-17
 
 ### Added
+
 - **Concurrent multi-URL support for `crawl`** — `node index.js crawl site1.com site2.com` submits all jobs concurrently and polls them in a unified loop
 - **Concurrent multi-URL support for `scrape`** — `node index.js scrape url1 url2` runs all scrapes concurrently via `Promise.allSettled`
 - Summary table printed after multi-URL crawl/scrape showing success/failure per URL
 - `--no-wait` with multiple crawl URLs submits all jobs and prints all job IDs
 
 ### Changed
+
 - Scrape no longer supports `--delay` flag (not needed with concurrent execution)
 - Crawl internals refactored: extracted `submitCrawl()` and `pollCrawlJobs()` helpers for composability
 
 ## [1.2.0] - 2026-03-17
 
 ### Added
+
 - `status <jobId>` subcommand — check crawl job status, finished/skipped counts
 - `download <jobId>` subcommand — fetch and save results for any job (even still-running ones)
 - `jobs` subcommand — list all logged jobs with ID, URL, status, page count, and start time
@@ -57,6 +104,7 @@ All notable changes to this project will be documented in this file.
 ## [1.1.0] - 2026-03-16
 
 ### Changed
+
 - Exponential backoff with jitter on retries (replaces flat 5s delay)
 - Retry 429 (rate-limited) responses with `Retry-After` header support
 - Retry 5xx server errors automatically; non-retryable errors fail fast
@@ -72,6 +120,7 @@ All notable changes to this project will be documented in this file.
 ## [1.0.0] - 2026-03-15
 
 ### Added
+
 - Crawl any website using Cloudflare Browser Rendering `/crawl` endpoint (async job with polling)
 - Scrape single pages using `/scrape` endpoint (synchronous)
 - Fast HTML-only mode as default; opt-in to full browser rendering with `--render`

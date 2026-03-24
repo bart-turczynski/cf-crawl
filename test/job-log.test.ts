@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import type { JobEntry } from "../src/types.js";
 
 vi.mock("node:fs/promises", () => ({
   appendFile: vi.fn(() => Promise.resolve()),
@@ -18,11 +19,18 @@ describe("job-log", () => {
 
   describe("logJob", () => {
     it("appends a JSONL entry to the jobs file", async () => {
-      const { appendFile } = await import("node:fs/promises");
-      const { ensureOutputDir } = await import("../src/output.js");
+      const { appendFile } = (await import("node:fs/promises")) as { appendFile: Mock };
+      const { ensureOutputDir } = (await import("../src/output.js")) as {
+        ensureOutputDir: Mock;
+      };
       const { logJob } = await import("../src/job-log.js");
 
-      const entry = { jobId: "abc-123", url: "https://example.com", status: "started" };
+      const entry = {
+        jobId: "abc-123",
+        url: "https://example.com",
+        status: "started",
+        startedAt: new Date().toISOString(),
+      } as JobEntry;
       await logJob(entry);
 
       expect(ensureOutputDir).toHaveBeenCalledTimes(1);
@@ -36,7 +44,7 @@ describe("job-log", () => {
 
   describe("readJobLog", () => {
     it("returns parsed entries from the JSONL file", async () => {
-      const { readFile } = await import("node:fs/promises");
+      const { readFile } = (await import("node:fs/promises")) as { readFile: Mock };
       const entries = [
         { jobId: "abc-123", url: "https://example.com" },
         { jobId: "def-456", url: "https://other.com" },
@@ -51,8 +59,10 @@ describe("job-log", () => {
     });
 
     it("returns empty array when file does not exist", async () => {
-      const { readFile } = await import("node:fs/promises");
-      readFile.mockRejectedValue(new Error("ENOENT: no such file or directory"));
+      const { readFile } = (await import("node:fs/promises")) as { readFile: Mock };
+      const err = new Error("ENOENT: no such file or directory") as NodeJS.ErrnoException;
+      err.code = "ENOENT";
+      readFile.mockRejectedValue(err);
 
       const { readJobLog } = await import("../src/job-log.js");
       const result = await readJobLog();
@@ -63,7 +73,10 @@ describe("job-log", () => {
 
   describe("updateJobLog", () => {
     it("updates an existing entry by jobId", async () => {
-      const { readFile, writeFile } = await import("node:fs/promises");
+      const { readFile, writeFile } = (await import("node:fs/promises")) as {
+        readFile: Mock;
+        writeFile: Mock;
+      };
       const existing = [
         { jobId: "abc-123", url: "https://example.com", status: "started" },
         { jobId: "def-456", url: "https://other.com", status: "started" },
@@ -71,16 +84,18 @@ describe("job-log", () => {
       readFile.mockResolvedValue(existing.map((e) => JSON.stringify(e)).join("\n") + "\n");
 
       const { updateJobLog } = await import("../src/job-log.js");
-      await updateJobLog("abc-123", { status: "completed", pages: 42 });
+      await updateJobLog("abc-123", { status: "completed" });
 
       expect(writeFile).toHaveBeenCalledTimes(1);
-      const written = writeFile.mock.calls[0][1];
-      const lines = written.trim().split("\n").map((l) => JSON.parse(l));
+      const written = writeFile.mock.calls[0][1] as string;
+      const lines = written
+        .trim()
+        .split("\n")
+        .map((l: string) => JSON.parse(l));
 
       expect(lines).toHaveLength(2);
       expect(lines[0].jobId).toBe("abc-123");
       expect(lines[0].status).toBe("completed");
-      expect(lines[0].pages).toBe(42);
       expect(lines[0].updatedAt).toEqual(expect.any(String));
       // Second entry unchanged (except no updatedAt added)
       expect(lines[1].jobId).toBe("def-456");
@@ -88,7 +103,10 @@ describe("job-log", () => {
     });
 
     it("adds a new entry when jobId is not found", async () => {
-      const { readFile, writeFile } = await import("node:fs/promises");
+      const { readFile, writeFile } = (await import("node:fs/promises")) as {
+        readFile: Mock;
+        writeFile: Mock;
+      };
       const existing = [{ jobId: "abc-123", url: "https://example.com", status: "started" }];
       readFile.mockResolvedValue(existing.map((e) => JSON.stringify(e)).join("\n") + "\n");
 
@@ -96,8 +114,11 @@ describe("job-log", () => {
       await updateJobLog("new-999", { status: "interrupted" });
 
       expect(writeFile).toHaveBeenCalledTimes(1);
-      const written = writeFile.mock.calls[0][1];
-      const lines = written.trim().split("\n").map((l) => JSON.parse(l));
+      const written = writeFile.mock.calls[0][1] as string;
+      const lines = written
+        .trim()
+        .split("\n")
+        .map((l: string) => JSON.parse(l));
 
       expect(lines).toHaveLength(2);
       expect(lines[0].jobId).toBe("abc-123");

@@ -3,15 +3,36 @@
   "version": "1.0.0",
   "description": "Crawl and scrape websites using the Cloudflare Browser Rendering API",
   "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "cf-crawl": "dist/index.js"
+  },
   "scripts": {
-    "crawl": "node index.js crawl",
-    "crawl:render": "node index.js crawl --render",
-    "scrape": "node index.js scrape"
+    "build": "tsc",
+    "dev": "tsx index.ts",
+    "crawl": "tsx index.ts crawl",
+    "crawl:render": "tsx index.ts crawl --render",
+    "scrape": "tsx index.ts scrape",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "dotenv": "^16.4.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^25.5.0",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.57.2",
     "vitest": "^4.1.0"
   }
 }

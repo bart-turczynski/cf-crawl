@@ -15,14 +15,14 @@ All commands run from the project root (the directory containing `index.js` and 
 
 Parse `$ARGUMENTS` to determine the command and parameters:
 
-| Part | How to detect | Default |
-|---|---|---|
-| Command | First word: `crawl` or `scrape` | `crawl` |
-| URLs | Any tokens that look like URLs or domains (contain `.`) | required, at least one |
-| `--render` | User says "render", "rendered", "full browser", "JS rendering" | omit (fast HTML mode) |
-| `--limit N` | User says "limit N", "cap at N", "max N pages" | omit for scrape; see size tiers below for crawl |
-| `--max_depth N` | User says "depth N", "N levels deep" | omit |
-| `--no-wait` | User says "async", "don't wait", "fire and forget", "large", "full site" — OR if limit > 500 or no limit specified | omit |
+| Part            | How to detect                                                                                                      | Default                                         |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| Command         | First word: `crawl` or `scrape`                                                                                    | `crawl`                                         |
+| URLs            | Any tokens that look like URLs or domains (contain `.`)                                                            | required, at least one                          |
+| `--render`      | User says "render", "rendered", "full browser", "JS rendering"                                                     | omit (fast HTML mode)                           |
+| `--limit N`     | User says "limit N", "cap at N", "max N pages"                                                                     | omit for scrape; see size tiers below for crawl |
+| `--max_depth N` | User says "depth N", "N levels deep"                                                                               | omit                                            |
+| `--no-wait`     | User says "async", "don't wait", "fire and forget", "large", "full site" — OR if limit > 500 or no limit specified | omit                                            |
 
 URLs work with or without `https://` prefix. Always pass them as-is to the CLI (it normalizes internally).
 
@@ -30,9 +30,9 @@ URLs work with or without `https://` prefix. Always pass them as-is to the CLI (
 
 Decide the execution mode based on the expected crawl size:
 
-| Tier | Condition | Behavior |
-|---|---|---|
-| **Small** | `--limit` <= 500 (or user implies small scope) | Run synchronously — wait for results, report summary |
+| Tier      | Condition                                                                | Behavior                                                                                               |
+| --------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| **Small** | `--limit` <= 500 (or user implies small scope)                           | Run synchronously — wait for results, report summary                                                   |
 | **Large** | `--limit` > 500, no limit, or user says "full site"/"large"/"everything" | Use `--no-wait` — submit the job, return job IDs, tell the user how to check status and download later |
 
 When in doubt about size, ask the user. A crawl with no `--limit` can discover 100K+ pages and run for an hour.
@@ -42,6 +42,7 @@ When in doubt about size, ask the user. A crawl with no `--limit` can discover 1
 Run directly via Bash from the project root:
 
 Examples:
+
 - `node index.js crawl https://example.com --limit 100`
 - `node index.js crawl https://example.com --no-wait` (large/async)
 - `node index.js scrape https://example.com/page`
@@ -60,6 +61,7 @@ When the user provides multiple URLs:
 5. Collect and summarize all results after all batches complete.
 
 Agent prompt template for each URL:
+
 ```
 Run this command from the cf-crawl project root and report the output:
 node index.js <command> <url> [flags]
@@ -86,22 +88,26 @@ If the user asks to "check on" or "download" a previous crawl, run the appropria
 After execution, present results to the user:
 
 **For completed crawls:**
+
 - Pages crawled count
 - Pages skipped count
 - Output file path
 - Browser seconds used (if render mode)
 
 **For scrapes:**
+
 - Element counts per selector (title, h1, h2, links, etc.)
 - Output file path
 
 **For async (no-wait) crawls:**
+
 - Job ID
 - URL submitted
 - Commands to check status / download later
 - If multiple jobs, present as a table
 
 **For errors:**
+
 - The error message
 - Suggest checking `.env` credentials if it's an auth error
 - Suggest `--render` if the site requires JS rendering
