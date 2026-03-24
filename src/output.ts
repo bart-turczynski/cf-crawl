@@ -3,31 +3,35 @@
  */
 
 import { writeFile, mkdir } from "node:fs/promises";
+import { createWriteStream } from "node:fs";
 import { join } from "node:path";
 import { OUTPUT_DIR } from "./config.js";
+import type { CfApiResponse, CrawlResult } from "./types.js";
 
-// One-time mkdir — caches the promise so subsequent calls are free
-let mkdirPromise = null;
+// One-time mkdir -- caches the promise so subsequent calls are free
+let mkdirPromise: Promise<string | undefined> | null = null;
 
-export function ensureOutputDir() {
+export function ensureOutputDir(): Promise<string | undefined> {
   if (!mkdirPromise) {
     mkdirPromise = mkdir(OUTPUT_DIR, { recursive: true });
   }
   return mkdirPromise;
 }
 
-export async function saveResult(filename, data) {
+export async function saveResult(
+  filename: string,
+  data: CfApiResponse<CrawlResult>,
+): Promise<string> {
   await ensureOutputDir();
   const filepath = join(OUTPUT_DIR, filename);
 
   // For large results with many records, stream JSON to avoid string length limits
   const records = data.result?.records;
   if (records && records.length > 500) {
-    const { createWriteStream } = await import("node:fs");
     const meta = { ...data, result: { ...data.result } };
     delete meta.result.records;
 
-    await new Promise((resolve, reject) => {
+    await new Promise<void>((resolve, reject) => {
       const ws = createWriteStream(filepath);
       ws.on("error", reject);
       ws.on("finish", resolve);
@@ -41,7 +45,9 @@ export async function saveResult(filename, data) {
       const rootKeys = Object.entries(rootRest);
       for (let k = 0; k < rootKeys.length; k++) {
         const [key, val] = rootKeys[k];
-        ws.write(`  ${JSON.stringify(key)}: ${JSON.stringify(val)}${k < rootKeys.length - 1 ? "," : ","}\n`);
+        ws.write(
+          `  ${JSON.stringify(key)}: ${JSON.stringify(val)}${k < rootKeys.length - 1 ? "," : ","}\n`,
+        );
       }
 
       // Open result object

@@ -67,7 +67,9 @@ describe("config", () => {
 
   describe("validateEnv", () => {
     it("calls process.exit(1) when CF_ACCOUNT_ID is missing", async () => {
-      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {});
+      const exitSpy = vi
+        .spyOn(process, "exit")
+        .mockImplementation((() => {}) as unknown as (code?: number) => never);
       vi.spyOn(console, "error").mockImplementation(() => {});
 
       const originalAccountId = process.env.CF_ACCOUNT_ID;
@@ -89,7 +91,9 @@ describe("config", () => {
     });
 
     it("does not call process.exit when env vars are set", async () => {
-      const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {});
+      const exitSpy = vi
+        .spyOn(process, "exit")
+        .mockImplementation((() => {}) as unknown as (code?: number) => never);
 
       const originalAccountId = process.env.CF_ACCOUNT_ID;
       const originalApiToken = process.env.CF_API_TOKEN;

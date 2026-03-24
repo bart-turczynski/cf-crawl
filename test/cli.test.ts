@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
 
 // Mock all external dependencies so no real API calls are made
 vi.mock("../src/config.js", () => ({
@@ -40,18 +40,18 @@ vi.mock("../src/job-log.js", () => ({
 }));
 
 describe("cli", () => {
-  let originalArgv;
-  let exitSpy;
-  let errorSpy;
-  let logSpy;
+  let originalArgv: string[];
+  let exitSpy: ReturnType<typeof vi.spyOn>;
+  let errorSpy: ReturnType<typeof vi.spyOn>;
+  let logSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
     originalArgv = process.argv;
-    exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {
       throw new Error("process.exit called");
-    });
+    }) as unknown as (code?: number) => never);
     errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
   });
@@ -122,27 +122,29 @@ describe("cli", () => {
 
   describe("crawl dispatches to submitCrawl", () => {
     it("calls submitCrawl and pollCrawlJobs for a single URL", async () => {
-      const { submitCrawl, pollCrawlJobs } = await import("../src/commands/crawl.js");
+      const { submitCrawl, pollCrawlJobs } = (await import("../src/commands/crawl.js")) as {
+        submitCrawl: Mock;
+        pollCrawlJobs: Mock;
+      };
       submitCrawl.mockResolvedValue({ jobId: "job-abc", url: "https://example.com/" });
-      pollCrawlJobs.mockResolvedValue({ results: [{ url: "https://example.com/", jobId: "job-abc" }], failures: [] });
+      pollCrawlJobs.mockResolvedValue({
+        results: [{ url: "https://example.com/", jobId: "job-abc" }],
+        failures: [],
+      });
 
       process.argv = ["node", "index.js", "crawl", "example.com"];
       const { main } = await import("../src/cli.js");
 
       await main();
 
-      expect(submitCrawl).toHaveBeenCalledWith(
-        "https://example.com/",
-        false,
-        expect.any(Object),
-      );
+      expect(submitCrawl).toHaveBeenCalledWith("https://example.com/", false, expect.any(Object));
       expect(pollCrawlJobs).toHaveBeenCalledTimes(1);
     });
   });
 
   describe("scrape dispatches to scrape command", () => {
     it("calls scrape for a single URL", async () => {
-      const { scrape } = await import("../src/commands/scrape.js");
+      const { scrape } = (await import("../src/commands/scrape.js")) as { scrape: Mock };
       scrape.mockResolvedValue(undefined);
 
       process.argv = ["node", "index.js", "scrape", "https://example.com"];

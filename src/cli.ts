@@ -5,30 +5,31 @@
 import { validateEnv } from "./config.js";
 import { CrawlError } from "./errors.js";
 import { normalizeUrl, runConcurrent } from "./utils.js";
-import { crawl, submitCrawl, pollCrawlJobs } from "./commands/crawl.js";
+import { submitCrawl, pollCrawlJobs } from "./commands/crawl.js";
 import { scrape } from "./commands/scrape.js";
 import { status } from "./commands/status.js";
 import { download } from "./commands/download.js";
 import { listJobs } from "./commands/jobs.js";
 import { updateJobLog } from "./job-log.js";
+import type { Flags, ParsedArgs, CrawlOptions, ScrapeOptions, CrawlJob } from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Graceful shutdown
 // ---------------------------------------------------------------------------
 
-const activeJobIds = new Set();
+const activeJobIds = new Set<string>();
 
-export function trackJob(jobId) {
+export function trackJob(jobId: string): void {
   activeJobIds.add(jobId);
 }
 
-export function untrackJob(jobId) {
+export function untrackJob(jobId: string): void {
   activeJobIds.delete(jobId);
 }
 
 let sigintRegistered = false;
 
-function setupSigintHandler() {
+function setupSigintHandler(): void {
   if (sigintRegistered) return;
   sigintRegistered = true;
   process.on("SIGINT", async () => {
@@ -54,11 +55,11 @@ function setupSigintHandler() {
 // Arg parsing
 // ---------------------------------------------------------------------------
 
-function parseArgs(argv) {
+function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
   const command = args[0];
-  const flags = {};
-  const positionals = [];
+  const flags: Flags = {};
+  const positionals: string[] = [];
 
   for (let i = 1; i < args.length; i++) {
     if (args[i] === "-h") {
@@ -81,7 +82,7 @@ function parseArgs(argv) {
   return { command, flags, positionals };
 }
 
-function printUsage() {
+function printUsage(): void {
   console.log(`
 Usage:
   node index.js crawl <url> [url2 ...] [options]   Crawl site(s) concurrently (async)
@@ -114,17 +115,17 @@ Examples:
 // Input validation
 // ---------------------------------------------------------------------------
 
-function validateUrls(urls) {
+function validateUrls(urls: string[]): string[] {
   return urls.map((u) => normalizeUrl(u));
 }
 
-function validateLimit(flags) {
+function validateLimit(flags: Flags): void {
   if (flags.limit != null && (typeof flags.limit !== "number" || flags.limit < 1)) {
     throw new CrawlError("--limit must be a positive integer");
   }
 }
 
-function validateDepth(flags) {
+function validateDepth(flags: Flags): void {
   if (flags.max_depth != null && (typeof flags.max_depth !== "number" || flags.max_depth < 0)) {
     throw new CrawlError("--max_depth must be a non-negative integer");
   }
@@ -134,7 +135,7 @@ function validateDepth(flags) {
 // Main dispatcher
 // ---------------------------------------------------------------------------
 
-export async function main() {
+export async function main(): Promise<void> {
   const { command, flags, positionals } = parseArgs(process.argv);
 
   if (!command || flags.help) {
@@ -148,7 +149,9 @@ export async function main() {
   switch (command) {
     case "crawl": {
       if (positionals.length === 0) {
-        console.error("Error: URL is required.\nUsage: node index.js crawl <url> [url2 ...] [--render] [--limit N] [--no-wait]");
+        console.error(
+          "Error: URL is required.\nUsage: node index.js crawl <url> [url2 ...] [--render] [--limit N] [--no-wait]",
+        );
         process.exit(1);
       }
 
@@ -158,9 +161,9 @@ export async function main() {
       validateDepth(flags);
 
       const render = !!flags.render;
-      const crawlOpts = {};
-      if (flags.limit != null) crawlOpts.limit = flags.limit;
-      if (flags.max_depth != null) crawlOpts.max_depth = flags.max_depth;
+      const crawlOpts: CrawlOptions = {};
+      if (flags.limit != null) crawlOpts.limit = flags.limit as number;
+      if (flags.max_depth != null) crawlOpts.max_depth = flags.max_depth as number;
 
       if (urls.length === 1) {
         if (flags["no-wait"]) crawlOpts.wait = false;
@@ -171,29 +174,29 @@ export async function main() {
           console.log(`  node index.js status ${jobId}`);
           console.log(`  node index.js download ${jobId}`);
         } else {
-          const { results, failures } = await pollCrawlJobs([{ jobId, url: urls[0] }]);
+          const { failures } = await pollCrawlJobs([{ jobId, url: urls[0] }]);
           untrackJob(jobId);
           if (failures.length > 0) {
             throw new CrawlError(failures[0].error);
           }
         }
       } else {
-        // Multiple URLs — concurrent submission
-        const { successes: submitted, failures: submitFailures } = await runConcurrent(
+        // Multiple URLs -- concurrent submission
+        const { successes: submitted } = await runConcurrent(
           urls,
           async (u) => {
             const result = await submitCrawl(u, render, crawlOpts);
             trackJob(result.jobId);
             return result;
           },
-          { labelFn: String }
+          { labelFn: String },
         );
 
         if (submitted.length === 0) {
           throw new CrawlError("All crawl submissions failed");
         }
 
-        const jobs = submitted.map((s) => s.value);
+        const jobs: CrawlJob[] = submitted.map((s) => s.value);
 
         if (flags["no-wait"]) {
           console.log("\nAll jobs submitted (not waiting). To check later:");
@@ -207,10 +210,10 @@ export async function main() {
           // Print summary
           console.log(`\n${"="} Summary ${"="}`);
           for (const r of results) {
-            console.log(`  ✓ ${r.url} — success (job ${r.jobId.slice(0, 8)})`);
+            console.log(`  \u2713 ${r.url} \u2014 success (job ${r.jobId.slice(0, 8)})`);
           }
           for (const f of failures) {
-            console.log(`  ✗ ${f.url} — ${f.status}: ${f.error}`);
+            console.log(`  \u2717 ${f.url} \u2014 ${f.status}: ${f.error}`);
           }
 
           if (failures.length > 0 && results.length === 0) {
@@ -245,16 +248,18 @@ export async function main() {
     }
     case "scrape": {
       if (positionals.length === 0) {
-        console.error("Error: URL is required.\nUsage: node index.js scrape <url> [url2 ...] [--render] [--wait N]");
+        console.error(
+          "Error: URL is required.\nUsage: node index.js scrape <url> [url2 ...] [--render] [--wait N]",
+        );
         process.exit(1);
       }
 
       // Validate and normalize inputs at the boundary
       const urls = validateUrls(positionals);
 
-      const scrapeOpts = {};
+      const scrapeOpts: ScrapeOptions = {};
       if (flags.render) scrapeOpts.render = true;
-      if (flags.wait) scrapeOpts.wait = flags.wait;
+      if (flags.wait) scrapeOpts.wait = flags.wait as number;
 
       if (urls.length === 1) {
         await scrape(urls[0], scrapeOpts);

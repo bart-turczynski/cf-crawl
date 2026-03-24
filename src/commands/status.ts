@@ -1,14 +1,15 @@
 /**
- * Status command — check a crawl job's current state.
+ * Status command -- check a crawl job's current state.
  */
 
 import { COMPLETED_STATUSES } from "../config.js";
 import { cfFetch } from "../api-client.js";
 import { updateJobLog } from "../job-log.js";
+import type { CfApiResponse, CrawlResult } from "../types.js";
 
-export async function status(jobId) {
+export async function status(jobId: string): Promise<CfApiResponse<CrawlResult>> {
   console.log(`\nChecking job: ${jobId}`);
-  const result = await cfFetch(`/crawl/${jobId}`);
+  const result = await cfFetch<CrawlResult>(`/crawl/${jobId}`);
   const r = result.result;
 
   const st = r?.status ?? "unknown";

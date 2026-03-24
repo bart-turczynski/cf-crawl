@@ -3,13 +3,19 @@ import { sleep, backoffDelay, timestamp, normalizeUrl, runConcurrent } from "../
 import { CrawlError } from "../src/errors.js";
 
 describe("sleep", () => {
-  beforeEach(() => { vi.useFakeTimers(); });
-  afterEach(() => { vi.useRealTimers(); });
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it("resolves after the specified delay", async () => {
     const p = sleep(1000);
     let resolved = false;
-    p.then(() => { resolved = true; });
+    p.then(() => {
+      resolved = true;
+    });
 
     await vi.advanceTimersByTimeAsync(999);
     expect(resolved).toBe(false);
@@ -70,7 +76,7 @@ describe("normalizeUrl", () => {
 
 describe("runConcurrent", () => {
   it("runs all handlers concurrently and returns successes/failures", async () => {
-    const handler = async (item) => item * 2;
+    const handler = async (item: number) => item * 2;
     const { successes, failures } = await runConcurrent([1], handler);
     expect(successes).toHaveLength(1);
     expect(successes[0]).toEqual({ item: 1, value: 2 });
@@ -78,7 +84,9 @@ describe("runConcurrent", () => {
   });
 
   it("throws CrawlError when all operations fail", async () => {
-    const handler = async () => { throw new Error("boom"); };
+    const handler = async () => {
+      throw new Error("boom");
+    };
     await expect(runConcurrent([1, 2], handler)).rejects.toThrow(CrawlError);
     await expect(runConcurrent([1, 2], handler)).rejects.toThrow("All 2 operation(s) failed");
   });
@@ -87,7 +95,7 @@ describe("runConcurrent", () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    const handler = async (item) => {
+    const handler = async (item: string) => {
       if (item === "fail") throw new Error("oops");
       return item;
     };
@@ -99,9 +107,9 @@ describe("runConcurrent", () => {
     // Summary header + one success line + one failure line
     expect(logSpy).toHaveBeenCalled();
     const allLogCalls = logSpy.mock.calls.map((c) => c[0]);
-    expect(allLogCalls.some((msg) => msg.includes("Summary"))).toBe(true);
-    expect(allLogCalls.some((msg) => msg.includes("ok"))).toBe(true);
-    expect(allLogCalls.some((msg) => msg.includes("fail"))).toBe(true);
+    expect(allLogCalls.some((msg: string) => msg.includes("Summary"))).toBe(true);
+    expect(allLogCalls.some((msg: string) => msg.includes("ok"))).toBe(true);
+    expect(allLogCalls.some((msg: string) => msg.includes("fail"))).toBe(true);
 
     // console.error for the failure count
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("1 of 2"));

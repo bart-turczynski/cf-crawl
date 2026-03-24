@@ -1,12 +1,13 @@
 /**
- * Scrape command — /scrape endpoint (synchronous, single page).
+ * Scrape command -- /scrape endpoint (synchronous, single page).
  */
 
 import { normalizeUrl, timestamp } from "../utils.js";
 import { cfFetch } from "../api-client.js";
 import { saveResult } from "../output.js";
+import type { CfApiResponse, ScrapeResultGroup, SelectorSpec } from "../types.js";
 
-export const DEFAULT_SELECTORS = [
+export const DEFAULT_SELECTORS: SelectorSpec[] = [
   { selector: "head > title" },
   { selector: "meta[name='description']" },
   { selector: "h1" },
@@ -17,19 +18,22 @@ export const DEFAULT_SELECTORS = [
   { selector: "img[src]" },
 ];
 
-export async function scrape(targetUrl, { render = false, wait = 0 } = {}) {
+export async function scrape(
+  targetUrl: string,
+  { render = false, wait = 0 }: { render?: boolean; wait?: number } = {},
+): Promise<CfApiResponse<ScrapeResultGroup[]>> {
   const url = normalizeUrl(targetUrl);
   console.log(`\nScraping: ${url}`);
   if (render) console.log("Render: full browser");
   if (wait) console.log(`Wait: ${wait}ms`);
   console.log();
 
-  const body = { url, elements: DEFAULT_SELECTORS };
+  const body: Record<string, unknown> = { url, elements: DEFAULT_SELECTORS };
   if (render) body.render = true;
   if (wait > 0) body.waitForTimeout = wait;
   else body.waitForSelector = { selector: "h1" };
 
-  const result = await cfFetch("/scrape", {
+  const result = await cfFetch<ScrapeResultGroup[]>("/scrape", {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -40,7 +44,12 @@ export async function scrape(targetUrl, { render = false, wait = 0 } = {}) {
     console.log(`  ${group.selector}: ${group.results?.length ?? 0} element(s)`);
   }
 
-  const slug = url.replace(/https?:\/\//, "").replace(/[/?.#&=]+/g, "_").replace(/_$/, "");
-  await saveResult(`scrape_${slug}_${timestamp()}.json`, result);
+  const slug = url
+    .replace(/https?:\/\//, "")
+    .replace(/[/?.#&=]+/g, "_")
+    .replace(/_$/, "");
+  // saveResult expects CfApiResponse<CrawlResult> but scrape results have a different shape
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await saveResult(`scrape_${slug}_${timestamp()}.json`, result as any);
   return result;
 }
