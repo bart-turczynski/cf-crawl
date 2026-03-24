@@ -8,6 +8,10 @@ Crawl and scrape any website using the [Cloudflare Browser Rendering API](https:
 npm install
 cp .env.example .env
 # Fill in your Cloudflare credentials in .env
+
+# Create a Claude command
+mkdir -p .claude/commands
+cp cf-crawl.md .claude/commands/cf-crawl.md
 ```
 
 You need:
