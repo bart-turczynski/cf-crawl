@@ -9,7 +9,7 @@ argument-hint: "<crawl|scrape> <url> [url2 ...] [--render] [--limit N] [--max_de
 
 Crawl or scrape websites via the Cloudflare Browser Rendering API using the `cf-crawl` CLI tool.
 
-All commands run from the project root (the directory containing `index.js` and `package.json`). Use `node index.js ...` from there.
+All commands run from the project root (the directory containing `package.json`). Use `npm run <command> -- <args>` from there.
 
 ## Parsing $ARGUMENTS
 
@@ -43,10 +43,10 @@ Run directly via Bash from the project root:
 
 Examples:
 
-- `node index.js crawl https://example.com --limit 100`
-- `node index.js crawl https://example.com --no-wait` (large/async)
-- `node index.js scrape https://example.com/page`
-- `node index.js scrape https://example.com/page --render --wait 3000`
+- `npm run crawl -- https://example.com --limit 100`
+- `npm run crawl -- https://example.com --no-wait` (large/async)
+- `npm run scrape -- https://example.com/page`
+- `npm run scrape -- https://example.com/page --render --wait 3000`
 
 ## Multiple URLs execution
 
@@ -56,7 +56,7 @@ When the user provides multiple URLs:
 
 1. Split the URLs into batches of **at most 10**.
 2. Launch one Agent (subagent_type: `general-purpose`) per URL in the batch, all in a **single message** so they run concurrently.
-3. Each agent runs `node index.js <command> <url> [flags]` from the project root.
+3. Each agent runs `npm run <command> -- <url> [flags]` from the project root.
 4. If there are more than 10 URLs, wait for the first batch to complete, then launch the next batch.
 5. Collect and summarize all results after all batches complete.
 
@@ -64,7 +64,7 @@ Agent prompt template for each URL:
 
 ```
 Run this command from the cf-crawl project root and report the output:
-node index.js <command> <url> [flags]
+npm run <command> -- <url> [flags]
 
 Report back: the command you ran, whether it succeeded or failed, and the key output (job ID for async crawls, summary stats for completed crawls/scrapes, or the error message if it failed).
 ```
@@ -76,9 +76,9 @@ For **large async crawls** with multiple URLs, each agent uses `--no-wait`. Afte
 After submitting async (large) crawls, tell the user they can check status or download results later. Provide the exact commands:
 
 ```
-node index.js status <jobId>      # Check if the crawl is done
-node index.js download <jobId>    # Download results when complete
-node index.js jobs                # List all logged jobs
+npm run status -- <jobId>      # Check if the crawl is done
+npm run download -- <jobId>    # Download results when complete
+npm run jobs                   # List all logged jobs
 ```
 
 If the user asks to "check on" or "download" a previous crawl, run the appropriate command directly.
