@@ -25,6 +25,7 @@ export async function scrape(targetUrl, { render = false, wait = 0 } = {}) {
   console.log();
 
   const body = { url, elements: DEFAULT_SELECTORS };
+  if (render) body.render = true;
   if (wait > 0) body.waitForTimeout = wait;
   else body.waitForSelector = { selector: "h1" };
 
