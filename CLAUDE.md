@@ -49,7 +49,7 @@ Commands live in `src/commands/` (crawl, scrape, status, download, jobs). Shared
 - **`src/config.ts`** — Constants, env validation, status sets (`COMPLETED_STATUSES`, `FAILED_STATUSES`)
 - **`src/errors.ts`** — `CrawlError`, `ApiError` with `retryable` flag
 - **`src/utils.ts`** — `sleep`, `backoffDelay`, `timestamp`, `normalizeUrl`, `runConcurrent`
-- **`src/output.ts`** — `saveResult`, `ensureOutputDir` (cached mkdir)
+- **`src/output.ts`** — `saveResult`, `ensureOutputDir` (cached mkdir), `StreamingJsonWriter` / `StreamingJsonlWriter` for incremental disk writes
 - **`src/job-log.ts`** — JSONL persistence for job tracking
 
 Dependency graph (no cycles, max 3 levels deep):
@@ -85,12 +85,30 @@ Requires `.env` with Cloudflare credentials (see `.env.example`):
 - Crawl jobs are async: POST `/crawl`, poll `/crawl/{jobId}` every 10s with cursor-based pagination. Max poll ~60 minutes
 - Scrape is synchronous: single POST `/scrape` returns immediately
 - `cfFetch` retries transient errors up to 4 times with exponential backoff
+- Large crawl results are streamed to disk incrementally during pagination (never held fully in memory). Use `--format jsonl` for one-record-per-line output suited to streaming pipelines
 
 ## Testing
 
 - Tests live in `test/` directory, one test file per source module (e.g., `test/utils.test.ts` for `src/utils.ts`)
 - Uses vitest with `vi` for mocking/fake timers
 - Test imports use `.js` extensions matching source (e.g., `from "../src/utils.js"`)
+
+## Large downloads
+
+For very large crawls (50K+ pages), downloads can take several minutes. If running from within Claude Code, the background task may be killed by session timeouts. In that case, run the download directly in a terminal:
+
+```bash
+# Build first if needed
+npm run build
+
+# Run download outside Claude Code -- no timeout limits
+node dist/index.js download <jobId>
+
+# Or use JSONL for streaming-friendly output
+node dist/index.js download <jobId> --format jsonl
+```
+
+The streaming writer keeps memory usage constant regardless of crawl size — only one page of records (~50 records) is in memory at any time.
 
 ## Conventions
 

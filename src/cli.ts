@@ -11,7 +11,14 @@ import { status } from "./commands/status.js";
 import { download } from "./commands/download.js";
 import { listJobs } from "./commands/jobs.js";
 import { updateJobLog } from "./job-log.js";
-import type { Flags, ParsedArgs, CrawlOptions, ScrapeOptions, CrawlJob } from "./types.js";
+import type {
+  Flags,
+  ParsedArgs,
+  CrawlOptions,
+  ScrapeOptions,
+  CrawlJob,
+  OutputFormat,
+} from "./types.js";
 
 // ---------------------------------------------------------------------------
 // Graceful shutdown
@@ -96,6 +103,10 @@ Crawl options:
   --limit N      Max pages to crawl (default: 100000)
   --max_depth N  Max link depth to follow
   --no-wait      Submit job(s) and exit without polling (fire-and-forget)
+  --format F     Output format: "json" (default) or "jsonl" (one record per line)
+
+Download options:
+  --format F     Output format: "json" (default) or "jsonl" (one record per line)
 
 Scrape options:
   --render       Use full browser rendering
@@ -105,6 +116,7 @@ Examples:
   node index.js crawl example.com
   node index.js crawl site1.com site2.com --render --limit 100
   node index.js crawl site1.com site2.com --no-wait
+  node index.js download 3ad0fe7f --format jsonl
   node index.js status 3ad0fe7f-f607-4fb7-a371-8f19f11120b7
   node index.js download 3ad0fe7f-f607-4fb7-a371-8f19f11120b7
   node index.js scrape https://example.com https://example.org
@@ -161,9 +173,11 @@ export async function main(): Promise<void> {
       validateDepth(flags);
 
       const render = !!flags.render;
+      const format = (flags.format as OutputFormat) ?? undefined;
       const crawlOpts: CrawlOptions = {};
       if (flags.limit != null) crawlOpts.limit = flags.limit as number;
       if (flags.max_depth != null) crawlOpts.max_depth = flags.max_depth as number;
+      if (format) crawlOpts.format = format;
 
       if (urls.length === 1) {
         if (flags["no-wait"]) crawlOpts.wait = false;
@@ -174,7 +188,7 @@ export async function main(): Promise<void> {
           console.log(`  node index.js status ${jobId}`);
           console.log(`  node index.js download ${jobId}`);
         } else {
-          const { failures } = await pollCrawlJobs([{ jobId, url: urls[0] }]);
+          const { failures } = await pollCrawlJobs([{ jobId, url: urls[0] }], { format });
           untrackJob(jobId);
           if (failures.length > 0) {
             throw new CrawlError(failures[0].error);
@@ -204,7 +218,7 @@ export async function main(): Promise<void> {
             console.log(`  [${new URL(s.url).hostname}] node index.js status ${s.jobId}`);
           }
         } else {
-          const { results, failures } = await pollCrawlJobs(jobs);
+          const { results, failures } = await pollCrawlJobs(jobs, { format });
           for (const j of jobs) untrackJob(j.jobId);
 
           // Print summary
@@ -239,7 +253,8 @@ export async function main(): Promise<void> {
         console.error("Error: Job ID is required.\nUsage: node index.js download <jobId>");
         process.exit(1);
       }
-      await download(positionals[0]);
+      const dlFormat = (flags.format as OutputFormat) ?? undefined;
+      await download(positionals[0], { format: dlFormat });
       break;
     }
     case "jobs": {

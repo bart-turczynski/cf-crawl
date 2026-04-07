@@ -6,17 +6,18 @@ import { POLL_DEFAULTS, COMPLETED_STATUSES, FAILED_STATUSES } from "../config.js
 import { CrawlError } from "../errors.js";
 import { sleep, normalizeUrl, timestamp } from "../utils.js";
 import { cfFetch } from "../api-client.js";
-import { saveResult } from "../output.js";
+import { createResultWriter } from "../output.js";
 import { logJob, updateJobLog } from "../job-log.js";
 import type {
   CfApiResponse,
   CrawlResult,
-  CrawlRecord,
   CrawlJob,
   CrawlOptions,
   PollResultEntry,
   PollFailureEntry,
   PollResult,
+  CollectResultSummary,
+  OutputFormat,
 } from "../types.js";
 
 export async function submitCrawl(
@@ -61,7 +62,10 @@ export async function submitCrawl(
   return { jobId, url };
 }
 
-export async function pollCrawlJobs(jobs: CrawlJob[]): Promise<PollResult> {
+export async function pollCrawlJobs(
+  jobs: CrawlJob[],
+  options?: { format?: OutputFormat },
+): Promise<PollResult> {
   const { intervalMs, maxAttempts } = POLL_DEFAULTS;
   const active = new Map<string, CrawlJob>(jobs.map((j) => [j.jobId, j]));
   const results: PollResultEntry[] = [];
@@ -100,7 +104,9 @@ export async function pollCrawlJobs(jobs: CrawlJob[]): Promise<PollResult> {
           skipped: result.result?.skipped,
         });
         try {
-          const collected = await collectResults(jobId, result, job.url);
+          const collected = await collectResults(jobId, result, job.url, {
+            format: options?.format,
+          });
           results.push({ ...job, status: "success", result: collected });
         } catch (err) {
           failures.push({ ...job, status: "failed", error: (err as Error).message });
@@ -153,8 +159,8 @@ export async function pollCrawlJobs(jobs: CrawlJob[]): Promise<PollResult> {
 export async function crawl(
   startUrl: string,
   render = false,
-  { limit = 100_000, max_depth, wait = true }: CrawlOptions = {},
-): Promise<CfApiResponse<CrawlResult> | { jobId: string } | undefined> {
+  { limit = 100_000, max_depth, wait = true, format }: CrawlOptions = {},
+): Promise<CollectResultSummary | { jobId: string } | undefined> {
   const { jobId, url } = await submitCrawl(startUrl, render, { limit, max_depth });
 
   if (!wait) {
@@ -164,7 +170,7 @@ export async function crawl(
     return { jobId };
   }
 
-  const { results: pollResults, failures } = await pollCrawlJobs([{ jobId, url }]);
+  const { results: pollResults, failures } = await pollCrawlJobs([{ jobId, url }], { format });
   if (failures.length > 0) {
     throw new CrawlError(failures[0].error);
   }
@@ -175,44 +181,66 @@ export async function collectResults(
   jobId: string,
   initialResult: CfApiResponse<CrawlResult>,
   startUrl?: string,
-): Promise<CfApiResponse<CrawlResult>> {
+  options?: { format?: OutputFormat },
+): Promise<CollectResultSummary> {
   const r = initialResult.result;
   const total = r?.finished ?? r?.total ?? 0;
   const skipped = r?.skipped ?? 0;
+  const format = options?.format ?? "json";
 
-  let allRecords: CrawlRecord[] = [...(r?.records ?? [])];
-  let cursor = r?.cursor;
-
-  while (cursor && allRecords.length < total) {
-    process.stdout.write(`\r  Fetching records: ${allRecords.length} / ${total}   `);
-    const page = await cfFetch<CrawlResult>(`/crawl/${jobId}?cursor=${cursor}`);
-    const pageRecords = page.result?.records ?? [];
-    if (pageRecords.length === 0) break;
-    allRecords = allRecords.concat(pageRecords);
-    cursor = page.result?.cursor;
-  }
-
-  console.log(
-    `\nPages fetched: ${allRecords.length} | Skipped: ${skipped} | Total discovered: ${total + skipped}`,
-  );
-  if (r?.browserSecondsUsed != null) console.log(`Browser seconds used: ${r.browserSecondsUsed}`);
-
-  const fullResult: CfApiResponse<CrawlResult> = {
-    ...initialResult,
-    result: { ...r, records: allRecords },
-  };
-
-  // Derive hostname from startUrl if provided, otherwise from first record or job ID
+  // Derive hostname from startUrl, first record, or job ID
+  const initialRecords = r?.records ?? [];
   let host: string;
   if (startUrl) {
     host = new URL(startUrl).hostname.replace(/^www\./, "");
-  } else if (allRecords.length > 0 && allRecords[0].url) {
-    host = new URL(allRecords[0].url).hostname.replace(/^www\./, "");
+  } else if (initialRecords.length > 0 && initialRecords[0].url) {
+    host = new URL(initialRecords[0].url).hostname.replace(/^www\./, "");
   } else {
     host = jobId.slice(0, 8);
   }
 
   const shortId = jobId.slice(0, 8);
-  await saveResult(`crawl_${host}_${shortId}_${timestamp()}.json`, fullResult);
-  return fullResult;
+  const filename = `crawl_${host}_${shortId}_${timestamp()}.json`;
+
+  // Build metadata (everything except records) for the JSON envelope
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { records: _discarded, ...resultMeta } = r ?? {};
+  const metadata = { ...initialResult, result: resultMeta };
+
+  const writer = createResultWriter(filename, format, metadata);
+  await writer.open();
+
+  try {
+    // Write initial batch of records
+    if (initialRecords.length > 0) {
+      await writer.writeRecords(initialRecords);
+    }
+
+    // Paginate through remaining records, streaming each page to disk
+    let cursor = r?.cursor;
+    while (cursor && writer.recordCount < total) {
+      process.stdout.write(`\r  Fetching records: ${writer.recordCount} / ${total}   `);
+      const page = await cfFetch<CrawlResult>(`/crawl/${jobId}?cursor=${cursor}`);
+      const pageRecords = page.result?.records ?? [];
+      if (pageRecords.length === 0) break;
+      await writer.writeRecords(pageRecords);
+      cursor = page.result?.cursor;
+    }
+  } finally {
+    await writer.close();
+  }
+
+  console.log(
+    `\nPages fetched: ${writer.recordCount} | Skipped: ${skipped} | Total discovered: ${total + skipped}`,
+  );
+  if (r?.browserSecondsUsed != null) console.log(`Browser seconds used: ${r.browserSecondsUsed}`);
+
+  return {
+    filepath: filename,
+    recordCount: writer.recordCount,
+    status: r?.status ?? "unknown",
+    finished: total,
+    skipped,
+    browserSecondsUsed: r?.browserSecondsUsed ?? 0,
+  };
 }

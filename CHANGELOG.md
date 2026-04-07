@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.0] - 2026-04-07
+
+### Changed
+
+- **Streaming downloads** — `collectResults` now streams records to disk incrementally during cursor pagination instead of accumulating all records in memory. Eliminates OOM crashes and timeouts on large crawls (60K+ pages). Each page of records is written to disk immediately, so memory usage stays constant regardless of crawl size.
+
+### Added
+
+- `--format jsonl` option for `crawl` and `download` commands — writes one JSON record per line instead of a single JSON object. Useful for streaming processing of large result sets.
+- `StreamingJsonWriter` and `StreamingJsonlWriter` classes in `output.ts` with backpressure-aware incremental writing.
+- 13 new tests covering streaming writers, backpressure handling, comma placement, and format selection.
+
+### Fixed
+
+- Memory exhaustion when downloading large crawl results — records are now streamed to disk page-by-page instead of held in a multi-GB array.
+
 ## [3.0.1] - 2026-03-24
 
 ### Fixed

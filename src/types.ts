@@ -88,10 +88,33 @@ export interface SelectorSpec {
 
 // --- Command options ---
 
+export type OutputFormat = "json" | "jsonl";
+
 export interface CrawlOptions {
   limit?: number;
   max_depth?: number;
   wait?: boolean;
+  format?: OutputFormat;
+}
+
+export interface DownloadOptions {
+  format?: OutputFormat;
+}
+
+export interface CollectResultSummary {
+  filepath: string;
+  recordCount: number;
+  status: string;
+  finished: number;
+  skipped: number;
+  browserSecondsUsed: number;
+}
+
+export interface ResultWriter {
+  open(): Promise<void>;
+  writeRecords(records: CrawlRecord[]): Promise<void>;
+  close(): Promise<string>;
+  readonly recordCount: number;
 }
 
 export interface ScrapeOptions {
@@ -108,7 +131,7 @@ export interface CrawlJob {
 
 export interface PollResultEntry extends CrawlJob {
   status: string;
-  result: CfApiResponse<CrawlResult>;
+  result: CollectResultSummary;
 }
 
 export interface PollFailureEntry extends CrawlJob {
