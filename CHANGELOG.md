@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.1.1] - 2026-04-07
+
+### Changed
+
+- Migrated Claude Code skill from `.claude/commands/` to `.claude/skills/cf-crawl/SKILL.md`
+- Renamed root `cf-crawl.md` to `skill.md` for clarity as the copyable documentation file
+- Updated README setup instructions to use the new skill path
+- Removed hardcoded absolute paths from SKILL.md
+
 ## [3.1.0] - 2026-04-07
 
 ### Changed

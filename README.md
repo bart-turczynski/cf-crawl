@@ -9,9 +9,9 @@ npm install
 cp .env.example .env
 # Fill in your Cloudflare credentials in .env
 
-# Create a Claude command
-mkdir -p .claude/commands
-cp cf-crawl.md .claude/commands/cf-crawl.md
+# Install the Claude Code skill
+mkdir -p .claude/skills/cf-crawl
+cp skill.md .claude/skills/cf-crawl/SKILL.md
 ```
 
 You need:
