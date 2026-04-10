@@ -20,16 +20,14 @@ export const DEFAULT_SELECTORS: SelectorSpec[] = [
 
 export async function scrape(
   targetUrl: string,
-  { render = false, wait = 0 }: { render?: boolean; wait?: number } = {},
+  { wait = 0 }: { wait?: number } = {},
 ): Promise<CfApiResponse<ScrapeResultGroup[]>> {
   const url = normalizeUrl(targetUrl);
   console.log(`\nScraping: ${url}`);
-  if (render) console.log("Render: full browser");
   if (wait) console.log(`Wait: ${wait}ms`);
   console.log();
 
   const body: Record<string, unknown> = { url, elements: DEFAULT_SELECTORS };
-  if (render) body.render = true;
   if (wait > 0) body.waitForTimeout = wait;
   else body.waitForSelector = { selector: "h1" };
 

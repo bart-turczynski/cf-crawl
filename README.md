@@ -59,12 +59,25 @@ Crawl jobs run asynchronously on Cloudflare. The CLI polls for results and saves
 npx tsx index.ts scrape <url> [<url2> ...] [options]
 ```
 
-Extracts titles, headings, paragraphs, links, images, and meta descriptions. Multiple URLs are scraped **in parallel**.
+Extracts titles, headings, paragraphs, links, images, and meta descriptions. Multiple URLs are scraped **in parallel**. The `/scrape` endpoint always runs in a full browser — there is no HTML-only mode.
 
 Options:
 
-- `--render` — Use full browser rendering
-- `--wait N` — Wait N ms for page to load
+- `--wait N` — Wait N ms before extracting (useful for JS-heavy pages that populate content after load). Without this, scrape waits for an `h1` to appear.
+
+### Convert pages to markdown
+
+```bash
+npx tsx index.ts markdown <url> [<url2> ...]
+```
+
+Converts page(s) to clean markdown via Cloudflare's `/markdown` endpoint — one `.md` file per URL written to `output/`. Multiple URLs are processed **in parallel**. The endpoint always uses full browser rendering, so JS-rendered content is captured without a flag.
+
+Example:
+
+```bash
+npx tsx index.ts markdown https://example.com https://example.org
+```
 
 ### Manage jobs
 
@@ -77,9 +90,10 @@ npx tsx index.ts jobs               # List all logged jobs
 ### npm scripts
 
 ```bash
-npm run crawl -- <url> [<url2> ...]        # fast HTML-only
-npm run crawl:render -- <url> [<url2> ...]  # full browser rendering
+npm run crawl -- <url> [<url2> ...]         # fast HTML-only
+npm run crawl:render -- <url> [<url2> ...]   # full browser rendering
 npm run scrape -- <url> [<url2> ...]
+npm run markdown -- <url> [<url2> ...]
 ```
 
 ### Build
@@ -105,6 +119,7 @@ Results are saved as JSON to the `output/` directory with timestamped filenames:
 
 - `crawl_{hostname}_{timestamp}.json`
 - `scrape_{slug}_{timestamp}.json`
+- `markdown_{slug}_{timestamp}.md`
 
 ## Shell scripts
 

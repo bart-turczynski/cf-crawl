@@ -15,6 +15,7 @@ npm install
 npm run crawl -- <url> [<url2> ...]
 npm run crawl:render -- <url> [<url2> ...]
 npm run scrape -- <url> [<url2> ...]
+npm run markdown -- <url> [<url2> ...]
 npm run status -- <jobId>
 npm run download -- <jobId>
 npm run jobs
@@ -43,7 +44,7 @@ npx vitest run -t "normalizeUrl"
 
 Modular ESM structure under `src/`. Entry point: `index.ts` -> `src/cli.ts` (arg parsing, command dispatch).
 
-Commands live in `src/commands/` (crawl, scrape, status, download, jobs). Shared infrastructure:
+Commands live in `src/commands/` (crawl, scrape, markdown, status, download, jobs). Shared infrastructure:
 
 - **`src/api-client.ts`** — `cfFetch` with retry + exponential backoff + rate limiting
 - **`src/config.ts`** — Constants, env validation, status sets (`COMPLETED_STATUSES`, `FAILED_STATUSES`)
@@ -84,6 +85,7 @@ Requires `.env` with Cloudflare credentials (see `.env.example`):
 - Default mode is fast HTML-only (no rendering, free during beta). Use `--render` for full browser rendering
 - Crawl jobs are async: POST `/crawl`, poll `/crawl/{jobId}` every 10s with cursor-based pagination. Max poll ~60 minutes
 - Scrape is synchronous: single POST `/scrape` returns immediately
+- Markdown is synchronous: single POST `/markdown` returns a plain markdown string; always uses full browser rendering (no `--render` flag)
 - `cfFetch` retries transient errors up to 4 times with exponential backoff
 - Large crawl results are streamed to disk incrementally during pagination (never held fully in memory). Use `--format jsonl` for one-record-per-line output suited to streaming pipelines
 

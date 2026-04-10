@@ -7,6 +7,7 @@ import { CrawlError } from "./errors.js";
 import { normalizeUrl, runConcurrent } from "./utils.js";
 import { submitCrawl, pollCrawlJobs } from "./commands/crawl.js";
 import { scrape } from "./commands/scrape.js";
+import { markdown } from "./commands/markdown.js";
 import { status } from "./commands/status.js";
 import { download } from "./commands/download.js";
 import { listJobs } from "./commands/jobs.js";
@@ -92,11 +93,12 @@ function parseArgs(argv: string[]): ParsedArgs {
 function printUsage(): void {
   console.log(`
 Usage:
-  node index.js crawl <url> [url2 ...] [options]   Crawl site(s) concurrently (async)
+  node index.js crawl <url> [url2 ...] [options]    Crawl site(s) concurrently (async)
   node index.js scrape <url> [url2 ...] [options]   Scrape page(s) concurrently (sync)
-  node index.js status <jobId>                       Check crawl job status
-  node index.js download <jobId>                     Download results for a job
-  node index.js jobs                                 List all logged jobs
+  node index.js markdown <url> [url2 ...]           Convert page(s) to markdown (sync)
+  node index.js status <jobId>                      Check crawl job status
+  node index.js download <jobId>                    Download results for a job
+  node index.js jobs                                List all logged jobs
 
 Crawl options:
   --render       Use full browser rendering (billed; default is fast HTML-only)
@@ -109,8 +111,10 @@ Download options:
   --format F     Output format: "json" (default) or "jsonl" (one record per line)
 
 Scrape options:
-  --render       Use full browser rendering
-  --wait N       Wait N ms for page to load
+  --wait N       Wait N ms before extracting (scrape always uses browser rendering)
+
+Markdown options:
+  (no flags -- endpoint always uses full browser rendering)
 
 Examples:
   node index.js crawl example.com
@@ -120,6 +124,7 @@ Examples:
   node index.js status 3ad0fe7f-f607-4fb7-a371-8f19f11120b7
   node index.js download 3ad0fe7f-f607-4fb7-a371-8f19f11120b7
   node index.js scrape https://example.com https://example.org
+  node index.js markdown https://example.com https://example.org
   `);
 }
 
@@ -264,7 +269,7 @@ export async function main(): Promise<void> {
     case "scrape": {
       if (positionals.length === 0) {
         console.error(
-          "Error: URL is required.\nUsage: node index.js scrape <url> [url2 ...] [--render] [--wait N]",
+          "Error: URL is required.\nUsage: node index.js scrape <url> [url2 ...] [--wait N]",
         );
         process.exit(1);
       }
@@ -273,13 +278,27 @@ export async function main(): Promise<void> {
       const urls = validateUrls(positionals);
 
       const scrapeOpts: ScrapeOptions = {};
-      if (flags.render) scrapeOpts.render = true;
       if (flags.wait) scrapeOpts.wait = flags.wait as number;
 
       if (urls.length === 1) {
         await scrape(urls[0], scrapeOpts);
       } else {
         await runConcurrent(urls, (u) => scrape(u, scrapeOpts), { labelFn: String });
+      }
+      break;
+    }
+    case "markdown": {
+      if (positionals.length === 0) {
+        console.error("Error: URL is required.\nUsage: node index.js markdown <url> [url2 ...]");
+        process.exit(1);
+      }
+
+      const urls = validateUrls(positionals);
+
+      if (urls.length === 1) {
+        await markdown(urls[0]);
+      } else {
+        await runConcurrent(urls, (u) => markdown(u), { labelFn: String });
       }
       break;
     }

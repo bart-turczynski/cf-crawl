@@ -13,6 +13,7 @@
     "crawl": "tsx index.ts crawl",
     "crawl:render": "tsx index.ts crawl --render",
     "scrape": "tsx index.ts scrape",
+    "markdown": "tsx index.ts markdown",
     "status": "tsx index.ts status",
     "download": "tsx index.ts download",
     "jobs": "tsx index.ts jobs",

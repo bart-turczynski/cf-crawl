@@ -23,6 +23,10 @@ vi.mock("../src/commands/scrape.js", () => ({
   scrape: vi.fn(),
 }));
 
+vi.mock("../src/commands/markdown.js", () => ({
+  markdown: vi.fn(),
+}));
+
 vi.mock("../src/commands/status.js", () => ({
   status: vi.fn(),
 }));
@@ -153,6 +157,47 @@ describe("cli", () => {
       await main();
 
       expect(scrape).toHaveBeenCalledWith("https://example.com/", expect.any(Object));
+    });
+  });
+
+  describe("markdown with no URL", () => {
+    it("exits with error when no URL is provided", async () => {
+      process.argv = ["node", "index.js", "markdown"];
+      const { main } = await import("../src/cli.js");
+
+      await expect(main()).rejects.toThrow("process.exit called");
+
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const errorOutput = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+      expect(errorOutput).toContain("URL is required");
+    });
+  });
+
+  describe("markdown dispatches to markdown command", () => {
+    it("calls markdown for a single URL", async () => {
+      const { markdown } = (await import("../src/commands/markdown.js")) as { markdown: Mock };
+      markdown.mockResolvedValue(undefined);
+
+      process.argv = ["node", "index.js", "markdown", "https://example.com"];
+      const { main } = await import("../src/cli.js");
+
+      await main();
+
+      expect(markdown).toHaveBeenCalledWith("https://example.com/");
+    });
+
+    it("calls markdown for each URL when multiple are provided", async () => {
+      const { markdown } = (await import("../src/commands/markdown.js")) as { markdown: Mock };
+      markdown.mockResolvedValue(undefined);
+
+      process.argv = ["node", "index.js", "markdown", "https://example.com", "https://example.org"];
+      const { main } = await import("../src/cli.js");
+
+      await main();
+
+      expect(markdown).toHaveBeenCalledTimes(2);
+      expect(markdown).toHaveBeenCalledWith("https://example.com/");
+      expect(markdown).toHaveBeenCalledWith("https://example.org/");
     });
   });
 });

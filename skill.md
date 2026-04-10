@@ -1,8 +1,8 @@
 ---
 name: cf-crawl
-description: Crawl or scrape websites using the Cloudflare Browser Rendering API. Use when the user says "crawl", "scrape", or wants to fetch/extract content from URLs. Supports batch operations with up to 10 concurrent agents.
+description: Crawl, scrape, or convert websites to markdown using the Cloudflare Browser Rendering API. Use when the user says "crawl", "scrape", "markdown", or wants to fetch/extract content from URLs. Supports batch operations with up to 10 concurrent agents.
 allowed-tools: Bash, Agent, Read
-argument-hint: "<crawl|scrape> <url> [url2 ...] [--render] [--limit N] [--max_depth N]"
+argument-hint: "<crawl|scrape|markdown> <url> [url2 ...] [--render] [--limit N] [--max_depth N] [--wait N]"
 ---
 
 # cf-crawl
@@ -15,14 +15,17 @@ All commands run from the project root (the directory containing `package.json`)
 
 Parse `$ARGUMENTS` to determine the command and parameters:
 
-| Part            | How to detect                                                                                                      | Default                                         |
-| --------------- | ------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| Command         | First word: `crawl` or `scrape`                                                                                    | `crawl`                                         |
-| URLs            | Any tokens that look like URLs or domains (contain `.`)                                                            | required, at least one                          |
-| `--render`      | User says "render", "rendered", "full browser", "JS rendering"                                                     | omit (fast HTML mode)                           |
-| `--limit N`     | User says "limit N", "cap at N", "max N pages"                                                                     | omit for scrape; see size tiers below for crawl |
-| `--max_depth N` | User says "depth N", "N levels deep"                                                                               | omit                                            |
-| `--no-wait`     | User says "async", "don't wait", "fire and forget", "large", "full site" — OR if limit > 500 or no limit specified | omit                                            |
+| Part            | How to detect                                                                                                              | Default                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Command         | First word: `crawl`, `scrape`, or `markdown`                                                                               | `crawl`                                                  |
+| URLs            | Any tokens that look like URLs or domains (contain `.`)                                                                    | required, at least one                                   |
+| `--render`      | User says "render", "rendered", "full browser", "JS rendering" (**crawl only** — scrape and markdown always use a browser) | omit (fast HTML mode for crawl)                          |
+| `--limit N`     | User says "limit N", "cap at N", "max N pages"                                                                             | omit for scrape/markdown; see size tiers below for crawl |
+| `--max_depth N` | User says "depth N", "N levels deep"                                                                                       | omit                                                     |
+| `--wait N`      | User says "wait N ms", "page needs time to load", "JS-heavy" — scrape only                                                 | omit                                                     |
+| `--no-wait`     | User says "async", "don't wait", "fire and forget", "large", "full site" — OR if limit > 500 or no limit specified         | omit                                                     |
+
+Pick `markdown` when the user wants **clean readable content** (e.g. "get the article text", "save these pages as markdown", "the scrape output is too messy"). Pick `scrape` when the user wants **structured element counts / specific selectors**.
 
 URLs work with or without `https://` prefix. Always pass them as-is to the CLI (it normalizes internally).
 
@@ -46,7 +49,8 @@ Examples:
 - `npm run crawl -- https://example.com --limit 100`
 - `npm run crawl -- https://example.com --no-wait` (large/async)
 - `npm run scrape -- https://example.com/page`
-- `npm run scrape -- https://example.com/page --render --wait 3000`
+- `npm run scrape -- https://example.com/page --wait 3000`
+- `npm run markdown -- https://example.com/article`
 
 ## Multiple URLs execution
 
@@ -99,6 +103,11 @@ After execution, present results to the user:
 - Element counts per selector (title, h1, h2, links, etc.)
 - Output file path
 
+**For markdown conversions:**
+
+- Character / line count of the generated markdown
+- Output file path (`.md` file)
+
 **For async (no-wait) crawls:**
 
 - Job ID
@@ -117,5 +126,6 @@ After execution, present results to the user:
 - The `.env` file with `CF_ACCOUNT_ID` and `CF_API_TOKEN` must exist in the project root
 - Default crawl mode is fast HTML-only (free during beta). `--render` uses full browser rendering (billed at ~$0.09/browser hour)
 - Crawl results persist on Cloudflare for 14 days after job completion
-- Output files are saved to `output/` as JSON
-- Scrape is always synchronous (returns immediately) — no async mode needed
+- Output files are saved to `output/` as JSON (crawl/scrape) or `.md` (markdown)
+- Scrape and markdown are always synchronous (return immediately) — no async mode needed
+- Markdown endpoint always uses full browser rendering — no `--render` flag

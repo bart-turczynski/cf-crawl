@@ -118,7 +118,6 @@ export interface ResultWriter {
 }
 
 export interface ScrapeOptions {
-  render?: boolean;
   wait?: number;
 }
 

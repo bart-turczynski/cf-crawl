@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.2.0] - 2026-04-10
+
+### Added
+
+- `markdown` command — convert page(s) to clean markdown via the Cloudflare Browser Rendering `/markdown` endpoint. Synchronous, single-URL per request, supports multiple URLs concurrently. Writes one `.md` file per URL to `output/`.
+- `npm run markdown` script.
+- CLI dispatch tests for the new command.
+
+### Removed
+
+- `--render` flag from the `scrape` command. The Cloudflare `/scrape` endpoint always runs in a full browser — there is no documented HTML-only mode — so the flag was a no-op and its name implied behavior that did not exist. `--wait N` remains and is now the primary lever for JS-heavy pages. Only `/crawl` still has a genuine `render: false` fast path.
+
 ## [3.1.1] - 2026-04-07
 
 ### Changed
