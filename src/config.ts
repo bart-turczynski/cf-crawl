@@ -4,6 +4,7 @@
 
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ConfigError } from "./errors.js";
 import type { RetryOptions, PollOptions } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -36,7 +37,6 @@ export const FAILED_STATUSES: Set<string> = new Set(["failed", "error"]);
 
 export function validateEnv(): void {
   if (!process.env.CF_ACCOUNT_ID || !process.env.CF_API_TOKEN) {
-    console.error("Missing CF_ACCOUNT_ID or CF_API_TOKEN in .env");
-    process.exit(1);
+    throw new ConfigError("Missing CF_ACCOUNT_ID or CF_API_TOKEN in .env");
   }
 }

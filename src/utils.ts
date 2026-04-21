@@ -47,7 +47,7 @@ export async function runConcurrent<T, V>(
   handler: (item: T) => Promise<V>,
   { labelFn = String }: { labelFn?: (item: T) => string } = {},
 ): Promise<ConcurrentResult<T, V>> {
-  const results = await Promise.allSettled(items.map(handler));
+  const results = await Promise.allSettled(items.map((item) => handler(item)));
 
   const successes: Array<{ item: T; value: V }> = [];
   const failures: Array<{ item: T; error: string }> = [];

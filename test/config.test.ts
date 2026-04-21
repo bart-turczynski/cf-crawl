@@ -66,12 +66,7 @@ describe("config", () => {
   });
 
   describe("validateEnv", () => {
-    it("calls process.exit(1) when CF_ACCOUNT_ID is missing", async () => {
-      const exitSpy = vi
-        .spyOn(process, "exit")
-        .mockImplementation((() => {}) as unknown as (code?: number) => never);
-      vi.spyOn(console, "error").mockImplementation(() => {});
-
+    it("throws ConfigError when required env vars are missing", async () => {
       const originalAccountId = process.env.CF_ACCOUNT_ID;
       const originalApiToken = process.env.CF_API_TOKEN;
       delete process.env.CF_ACCOUNT_ID;
@@ -81,20 +76,14 @@ describe("config", () => {
       // for a clean import.
       vi.resetModules();
       const { validateEnv } = await import("../src/config.js");
-      validateEnv();
-
-      expect(exitSpy).toHaveBeenCalledWith(1);
+      expect(() => validateEnv()).toThrow(/Missing CF_ACCOUNT_ID or CF_API_TOKEN/);
 
       // Restore
       if (originalAccountId !== undefined) process.env.CF_ACCOUNT_ID = originalAccountId;
       if (originalApiToken !== undefined) process.env.CF_API_TOKEN = originalApiToken;
     });
 
-    it("does not call process.exit when env vars are set", async () => {
-      const exitSpy = vi
-        .spyOn(process, "exit")
-        .mockImplementation((() => {}) as unknown as (code?: number) => never);
-
+    it("does not throw when env vars are set", async () => {
       const originalAccountId = process.env.CF_ACCOUNT_ID;
       const originalApiToken = process.env.CF_API_TOKEN;
       process.env.CF_ACCOUNT_ID = "test-account-id";
@@ -102,9 +91,7 @@ describe("config", () => {
 
       vi.resetModules();
       const { validateEnv } = await import("../src/config.js");
-      validateEnv();
-
-      expect(exitSpy).not.toHaveBeenCalled();
+      expect(() => validateEnv()).not.toThrow();
 
       // Restore
       if (originalAccountId !== undefined) {

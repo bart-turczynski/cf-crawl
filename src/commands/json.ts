@@ -5,12 +5,10 @@
  * it's passed as response_format: { type: "json_schema", json_schema: <schema> }.
  */
 
-import { readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile } from "node:fs/promises";
 import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
-import { ensureOutputDir } from "../output.js";
-import { OUTPUT_DIR } from "../config.js";
+import { saveJson } from "../output.js";
 import { CrawlError } from "../errors.js";
 import type { CfApiResponse } from "../types.js";
 
@@ -53,11 +51,8 @@ export async function json(
     body: JSON.stringify(body),
   });
 
-  await ensureOutputDir();
   const filename = `json_${urlSlug(url)}_${timestamp()}.json`;
-  const filepath = join(OUTPUT_DIR, filename);
-  await writeFile(filepath, JSON.stringify(result, null, 2));
-  console.log(`Saved: ${filepath}`);
+  await saveJson(filename, result);
 
   return result;
 }

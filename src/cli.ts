@@ -3,7 +3,7 @@
  */
 
 import { validateEnv } from "./config.js";
-import { CrawlError } from "./errors.js";
+import { CrawlError, UsageError } from "./errors.js";
 import { normalizeUrl, runConcurrent } from "./utils.js";
 import { submitCrawl, pollCrawlJobs } from "./commands/crawl.js";
 import { scrape } from "./commands/scrape.js";
@@ -31,26 +31,38 @@ import type {
   ScreenshotFormat,
 } from "./types.js";
 
-// ---------------------------------------------------------------------------
-// Graceful shutdown
-// ---------------------------------------------------------------------------
-
-const activeJobIds = new Set<string>();
-
-export function trackJob(jobId: string): void {
-  activeJobIds.add(jobId);
+interface ExecutionContext {
+  trackJob(jobId: string): void;
+  untrackJob(jobId: string): void;
+  dispose(): void;
 }
 
-export function untrackJob(jobId: string): void {
-  activeJobIds.delete(jobId);
+interface CommandSpec {
+  run(args: ParsedArgs, context: ExecutionContext): Promise<void>;
 }
 
-let sigintRegistered = false;
+const OUTPUT_FORMATS = new Set<OutputFormat>(["json", "jsonl"]);
+const SCREENSHOT_FORMATS = new Set<ScreenshotFormat>(["png", "jpeg", "webp"]);
 
-function setupSigintHandler(): void {
-  if (sigintRegistered) return;
-  sigintRegistered = true;
-  process.on("SIGINT", async () => {
+const USAGE = {
+  crawl: "node index.js crawl <url> [url2 ...] [--render] [--limit N] [--no-wait]",
+  status: "node index.js status <jobId>",
+  download: "node index.js download <jobId>",
+  scrape: "node index.js scrape <url> [url2 ...] [--wait N]",
+  markdown: "node index.js markdown <url> [url2 ...]",
+  content: "node index.js content <url> [url2 ...]",
+  links: "node index.js links <url> [url2 ...] [--visible-only] [--exclude-external]",
+  json: 'node index.js json <url> --prompt "..." [--schema path]',
+  pdf: "node index.js pdf <url> [url2 ...]",
+  screenshot:
+    "node index.js screenshot <url> [url2 ...] [--full-page] [--format png|jpeg|webp]",
+  snapshot: "node index.js snapshot <url> [url2 ...]",
+  tomarkdown: "node index.js tomarkdown <file> [file2 ...]",
+} as const;
+
+function createExecutionContext(): ExecutionContext {
+  const activeJobIds = new Set<string>();
+  const handleSigint = async (): Promise<void> => {
     console.log("\n\nInterrupted by user.");
     if (activeJobIds.size > 0) {
       console.log("Active job IDs (still running on Cloudflare):");
@@ -66,12 +78,25 @@ function setupSigintHandler(): void {
       }
     }
     process.exit(130);
-  });
-}
+  };
 
-// ---------------------------------------------------------------------------
-// Arg parsing
-// ---------------------------------------------------------------------------
+  process.on("SIGINT", handleSigint);
+
+  let disposed = false;
+  return {
+    trackJob(jobId: string): void {
+      activeJobIds.add(jobId);
+    },
+    untrackJob(jobId: string): void {
+      activeJobIds.delete(jobId);
+    },
+    dispose(): void {
+      if (disposed) return;
+      disposed = true;
+      process.off("SIGINT", handleSigint);
+    },
+  };
+}
 
 function parseArgs(argv: string[]): ParsedArgs {
   const args = argv.slice(2);
@@ -161,296 +186,304 @@ Examples:
   `);
 }
 
-// ---------------------------------------------------------------------------
-// Input validation
-// ---------------------------------------------------------------------------
+function failUsage(message: string, usage?: string): never {
+  const formatted = usage ? `Error: ${message}\nUsage: ${usage}` : `Error: ${message}`;
+  throw new UsageError(formatted);
+}
 
 function validateUrls(urls: string[]): string[] {
-  return urls.map((u) => normalizeUrl(u));
+  return urls.map((url) => normalizeUrl(url));
 }
 
-function validateLimit(flags: Flags): void {
-  if (flags.limit != null && (typeof flags.limit !== "number" || flags.limit < 1)) {
-    throw new CrawlError("--limit must be a positive integer");
+function requireUrls(positionals: string[], usage: string): string[] {
+  if (positionals.length === 0) {
+    failUsage("URL is required.", usage);
+  }
+  return validateUrls(positionals);
+}
+
+function requireJobId(positionals: string[], usage: string): string {
+  const jobId = positionals[0];
+  if (!jobId) {
+    failUsage("Job ID is required.", usage);
+  }
+  return jobId;
+}
+
+function requireFilePaths(positionals: string[], usage: string): string[] {
+  if (positionals.length === 0) {
+    failUsage("at least one file path is required.", usage);
+  }
+  return positionals;
+}
+
+function getNumberFlag(
+  flags: Flags,
+  key: string,
+  errorMessage: string,
+  { min = 0 }: { min?: number } = {},
+): number | undefined {
+  const value = flags[key];
+  if (value == null) return undefined;
+  if (typeof value !== "number" || value < min) {
+    failUsage(errorMessage);
+  }
+  return value;
+}
+
+function getOutputFormat(flags: Flags): OutputFormat | undefined {
+  const format = flags.format;
+  if (format == null) return undefined;
+  if (format === "json" || format === "jsonl") {
+    return format;
+  }
+  failUsage(`--format must be one of: ${[...OUTPUT_FORMATS].join(", ")}`);
+}
+
+function getCrawlOptions(flags: Flags): { render: boolean; options: CrawlOptions } {
+  const limit = getNumberFlag(flags, "limit", "--limit must be a positive integer", { min: 1 });
+  const maxDepth = getNumberFlag(
+    flags,
+    "max_depth",
+    "--max_depth must be a non-negative integer",
+  );
+  const format = getOutputFormat(flags);
+
+  const options: CrawlOptions = {};
+  if (limit != null) options.limit = limit;
+  if (maxDepth != null) options.max_depth = maxDepth;
+  if (format) options.format = format;
+
+  return {
+    render: !!flags.render,
+    options,
+  };
+}
+
+function getScrapeOptions(flags: Flags): ScrapeOptions {
+  const wait = getNumberFlag(flags, "wait", "--wait must be a non-negative integer");
+  return wait != null ? { wait } : {};
+}
+
+function getLinksOptions(flags: Flags): LinksOptions {
+  const options: LinksOptions = {};
+  if (flags["visible-only"]) options.visibleLinksOnly = true;
+  if (flags["exclude-external"]) options.excludeExternalLinks = true;
+  return options;
+}
+
+function getScreenshotOptions(flags: Flags): ScreenshotOptions {
+  const options: ScreenshotOptions = {};
+  if (flags["full-page"]) options.fullPage = true;
+
+  if (flags.format != null) {
+    if (typeof flags.format !== "string") {
+      failUsage("--format must be one of: png, jpeg, webp");
+    }
+    const format = flags.format.toLowerCase();
+    if (!SCREENSHOT_FORMATS.has(format as ScreenshotFormat)) {
+      failUsage("--format must be one of: png, jpeg, webp");
+    }
+    options.format = format as ScreenshotFormat;
+  }
+
+  return options;
+}
+
+async function runUrlCommand(
+  urls: string[],
+  handler: (url: string) => Promise<unknown>,
+): Promise<void> {
+  if (urls.length === 1) {
+    await handler(urls[0]);
+    return;
+  }
+
+  await runConcurrent(urls, handler, { labelFn: String });
+}
+
+async function runCrawlCommand(
+  { flags, positionals }: ParsedArgs,
+  context: ExecutionContext,
+): Promise<void> {
+  const urls = requireUrls(positionals, USAGE.crawl);
+  const { render, options } = getCrawlOptions(flags);
+  const format = options.format;
+
+  if (urls.length === 1) {
+    if (flags["no-wait"]) options.wait = false;
+    const { jobId } = await submitCrawl(urls[0], render, options);
+    context.trackJob(jobId);
+    if (options.wait === false) {
+      console.log(`\nJob submitted (not waiting). To check later:`);
+      console.log(`  node index.js status ${jobId}`);
+      console.log(`  node index.js download ${jobId}`);
+      return;
+    }
+
+    try {
+      const { failures } = await pollCrawlJobs([{ jobId, url: urls[0] }], { format });
+      if (failures.length > 0) {
+        throw new CrawlError(failures[0].error);
+      }
+    } finally {
+      context.untrackJob(jobId);
+    }
+    return;
+  }
+
+  const { successes: submitted } = await runConcurrent(
+    urls,
+    async (url) => {
+      const result = await submitCrawl(url, render, options);
+      context.trackJob(result.jobId);
+      return result;
+    },
+    { labelFn: String },
+  );
+
+  if (submitted.length === 0) {
+    throw new CrawlError("All crawl submissions failed");
+  }
+
+  const jobs: CrawlJob[] = submitted.map((entry) => entry.value);
+
+  if (flags["no-wait"]) {
+    console.log("\nAll jobs submitted (not waiting). To check later:");
+    for (const job of jobs) {
+      console.log(`  [${new URL(job.url).hostname}] node index.js status ${job.jobId}`);
+    }
+    return;
+  }
+
+  try {
+    const { results, failures } = await pollCrawlJobs(jobs, { format });
+
+    console.log(`\n${"="} Summary ${"="}`);
+    for (const result of results) {
+      console.log(`  \u2713 ${result.url} \u2014 success (job ${result.jobId.slice(0, 8)})`);
+    }
+    for (const failure of failures) {
+      console.log(`  \u2717 ${failure.url} \u2014 ${failure.status}: ${failure.error}`);
+    }
+
+    if (failures.length > 0 && results.length === 0) {
+      throw new CrawlError(`All ${failures.length} crawl(s) failed`);
+    }
+    if (failures.length > 0) {
+      console.error(`\n${failures.length} of ${jobs.length} crawl(s) failed.`);
+    }
+  } finally {
+    for (const job of jobs) {
+      context.untrackJob(job.jobId);
+    }
   }
 }
 
-function validateDepth(flags: Flags): void {
-  if (flags.max_depth != null && (typeof flags.max_depth !== "number" || flags.max_depth < 0)) {
-    throw new CrawlError("--max_depth must be a non-negative integer");
+const COMMANDS: Record<string, CommandSpec> = {
+  crawl: {
+    run: runCrawlCommand,
+  },
+  status: {
+    async run({ positionals }): Promise<void> {
+      await status(requireJobId(positionals, USAGE.status));
+    },
+  },
+  download: {
+    async run({ flags, positionals }): Promise<void> {
+      await download(requireJobId(positionals, USAGE.download), {
+        format: getOutputFormat(flags),
+      });
+    },
+  },
+  jobs: {
+    async run(): Promise<void> {
+      await listJobs();
+    },
+  },
+  scrape: {
+    async run({ flags, positionals }): Promise<void> {
+      const urls = requireUrls(positionals, USAGE.scrape);
+      const options = getScrapeOptions(flags);
+      await runUrlCommand(urls, async (url) => scrape(url, options));
+    },
+  },
+  markdown: {
+    async run({ positionals }): Promise<void> {
+      await runUrlCommand(requireUrls(positionals, USAGE.markdown), markdown);
+    },
+  },
+  content: {
+    async run({ positionals }): Promise<void> {
+      await runUrlCommand(requireUrls(positionals, USAGE.content), content);
+    },
+  },
+  links: {
+    async run({ flags, positionals }): Promise<void> {
+      const urls = requireUrls(positionals, USAGE.links);
+      const options = getLinksOptions(flags);
+      await runUrlCommand(urls, async (url) => links(url, options));
+    },
+  },
+  json: {
+    async run({ flags, positionals }): Promise<void> {
+      const urls = requireUrls(positionals, USAGE.json);
+      if (typeof flags.prompt !== "string" || flags.prompt.trim().length === 0) {
+        failUsage('--prompt "<text>" is required for `json`.');
+      }
+
+      const options = {
+        prompt: flags.prompt,
+        schemaPath: typeof flags.schema === "string" ? flags.schema : undefined,
+      };
+
+      await runUrlCommand(urls, async (url) => jsonExtract(url, options));
+    },
+  },
+  pdf: {
+    async run({ positionals }): Promise<void> {
+      await runUrlCommand(requireUrls(positionals, USAGE.pdf), pdf);
+    },
+  },
+  screenshot: {
+    async run({ flags, positionals }): Promise<void> {
+      const urls = requireUrls(positionals, USAGE.screenshot);
+      const options = getScreenshotOptions(flags);
+      await runUrlCommand(urls, async (url) => screenshot(url, options));
+    },
+  },
+  snapshot: {
+    async run({ positionals }): Promise<void> {
+      await runUrlCommand(requireUrls(positionals, USAGE.snapshot), snapshot);
+    },
+  },
+  tomarkdown: {
+    async run({ positionals }): Promise<void> {
+      await tomarkdown(requireFilePaths(positionals, USAGE.tomarkdown));
+    },
+  },
+};
+
+export async function main(argv: string[] = process.argv): Promise<void> {
+  const parsed = parseArgs(argv);
+
+  if (!parsed.command || parsed.flags.help) {
+    printUsage();
+    return;
   }
-}
 
-// ---------------------------------------------------------------------------
-// Main dispatcher
-// ---------------------------------------------------------------------------
-
-export async function main(): Promise<void> {
-  const { command, flags, positionals } = parseArgs(process.argv);
-
-  if (!command || flags.help) {
+  const command = COMMANDS[parsed.command];
+  if (!command) {
     printUsage();
     return;
   }
 
   validateEnv();
-  setupSigintHandler();
+  const context = createExecutionContext();
 
-  switch (command) {
-    case "crawl": {
-      if (positionals.length === 0) {
-        console.error(
-          "Error: URL is required.\nUsage: node index.js crawl <url> [url2 ...] [--render] [--limit N] [--no-wait]",
-        );
-        process.exit(1);
-      }
-
-      // Validate and normalize inputs at the boundary
-      const urls = validateUrls(positionals);
-      validateLimit(flags);
-      validateDepth(flags);
-
-      const render = !!flags.render;
-      const format = (flags.format as OutputFormat) ?? undefined;
-      const crawlOpts: CrawlOptions = {};
-      if (flags.limit != null) crawlOpts.limit = flags.limit as number;
-      if (flags.max_depth != null) crawlOpts.max_depth = flags.max_depth as number;
-      if (format) crawlOpts.format = format;
-
-      if (urls.length === 1) {
-        if (flags["no-wait"]) crawlOpts.wait = false;
-        const { jobId } = await submitCrawl(urls[0], render, crawlOpts);
-        trackJob(jobId);
-        if (crawlOpts.wait === false) {
-          console.log(`\nJob submitted (not waiting). To check later:`);
-          console.log(`  node index.js status ${jobId}`);
-          console.log(`  node index.js download ${jobId}`);
-        } else {
-          const { failures } = await pollCrawlJobs([{ jobId, url: urls[0] }], { format });
-          untrackJob(jobId);
-          if (failures.length > 0) {
-            throw new CrawlError(failures[0].error);
-          }
-        }
-      } else {
-        // Multiple URLs -- concurrent submission
-        const { successes: submitted } = await runConcurrent(
-          urls,
-          async (u) => {
-            const result = await submitCrawl(u, render, crawlOpts);
-            trackJob(result.jobId);
-            return result;
-          },
-          { labelFn: String },
-        );
-
-        if (submitted.length === 0) {
-          throw new CrawlError("All crawl submissions failed");
-        }
-
-        const jobs: CrawlJob[] = submitted.map((s) => s.value);
-
-        if (flags["no-wait"]) {
-          console.log("\nAll jobs submitted (not waiting). To check later:");
-          for (const s of jobs) {
-            console.log(`  [${new URL(s.url).hostname}] node index.js status ${s.jobId}`);
-          }
-        } else {
-          const { results, failures } = await pollCrawlJobs(jobs, { format });
-          for (const j of jobs) untrackJob(j.jobId);
-
-          // Print summary
-          console.log(`\n${"="} Summary ${"="}`);
-          for (const r of results) {
-            console.log(`  \u2713 ${r.url} \u2014 success (job ${r.jobId.slice(0, 8)})`);
-          }
-          for (const f of failures) {
-            console.log(`  \u2717 ${f.url} \u2014 ${f.status}: ${f.error}`);
-          }
-
-          if (failures.length > 0 && results.length === 0) {
-            throw new CrawlError(`All ${failures.length} crawl(s) failed`);
-          }
-          if (failures.length > 0) {
-            console.error(`\n${failures.length} of ${jobs.length} crawl(s) failed.`);
-          }
-        }
-      }
-      break;
-    }
-    case "status": {
-      if (!positionals[0]) {
-        console.error("Error: Job ID is required.\nUsage: node index.js status <jobId>");
-        process.exit(1);
-      }
-      await status(positionals[0]);
-      break;
-    }
-    case "download": {
-      if (!positionals[0]) {
-        console.error("Error: Job ID is required.\nUsage: node index.js download <jobId>");
-        process.exit(1);
-      }
-      const dlFormat = (flags.format as OutputFormat) ?? undefined;
-      await download(positionals[0], { format: dlFormat });
-      break;
-    }
-    case "jobs": {
-      await listJobs();
-      break;
-    }
-    case "scrape": {
-      if (positionals.length === 0) {
-        console.error(
-          "Error: URL is required.\nUsage: node index.js scrape <url> [url2 ...] [--wait N]",
-        );
-        process.exit(1);
-      }
-
-      // Validate and normalize inputs at the boundary
-      const urls = validateUrls(positionals);
-
-      const scrapeOpts: ScrapeOptions = {};
-      if (flags.wait) scrapeOpts.wait = flags.wait as number;
-
-      if (urls.length === 1) {
-        await scrape(urls[0], scrapeOpts);
-      } else {
-        await runConcurrent(urls, (u) => scrape(u, scrapeOpts), { labelFn: String });
-      }
-      break;
-    }
-    case "markdown": {
-      if (positionals.length === 0) {
-        console.error("Error: URL is required.\nUsage: node index.js markdown <url> [url2 ...]");
-        process.exit(1);
-      }
-
-      const urls = validateUrls(positionals);
-
-      if (urls.length === 1) {
-        await markdown(urls[0]);
-      } else {
-        await runConcurrent(urls, (u) => markdown(u), { labelFn: String });
-      }
-      break;
-    }
-    case "content": {
-      if (positionals.length === 0) {
-        console.error("Error: URL is required.\nUsage: node index.js content <url> [url2 ...]");
-        process.exit(1);
-      }
-      const urls = validateUrls(positionals);
-      if (urls.length === 1) {
-        await content(urls[0]);
-      } else {
-        await runConcurrent(urls, (u) => content(u), { labelFn: String });
-      }
-      break;
-    }
-    case "links": {
-      if (positionals.length === 0) {
-        console.error(
-          "Error: URL is required.\nUsage: node index.js links <url> [url2 ...] [--visible-only] [--exclude-external]",
-        );
-        process.exit(1);
-      }
-      const urls = validateUrls(positionals);
-      const linksOpts: LinksOptions = {};
-      if (flags["visible-only"]) linksOpts.visibleLinksOnly = true;
-      if (flags["exclude-external"]) linksOpts.excludeExternalLinks = true;
-      if (urls.length === 1) {
-        await links(urls[0], linksOpts);
-      } else {
-        await runConcurrent(urls, (u) => links(u, linksOpts), { labelFn: String });
-      }
-      break;
-    }
-    case "json": {
-      if (positionals.length === 0) {
-        console.error(
-          'Error: URL is required.\nUsage: node index.js json <url> --prompt "..." [--schema path]',
-        );
-        process.exit(1);
-      }
-      if (typeof flags.prompt !== "string" || flags.prompt.trim().length === 0) {
-        console.error('Error: --prompt "<text>" is required for `json`.');
-        process.exit(1);
-      }
-      const urls = validateUrls(positionals);
-      const jsonOpts = {
-        prompt: flags.prompt,
-        schemaPath: typeof flags.schema === "string" ? flags.schema : undefined,
-      };
-      if (urls.length === 1) {
-        await jsonExtract(urls[0], jsonOpts);
-      } else {
-        await runConcurrent(urls, (u) => jsonExtract(u, jsonOpts), { labelFn: String });
-      }
-      break;
-    }
-    case "pdf": {
-      if (positionals.length === 0) {
-        console.error("Error: URL is required.\nUsage: node index.js pdf <url> [url2 ...]");
-        process.exit(1);
-      }
-      const urls = validateUrls(positionals);
-      if (urls.length === 1) {
-        await pdf(urls[0]);
-      } else {
-        await runConcurrent(urls, (u) => pdf(u), { labelFn: String });
-      }
-      break;
-    }
-    case "screenshot": {
-      if (positionals.length === 0) {
-        console.error(
-          "Error: URL is required.\nUsage: node index.js screenshot <url> [url2 ...] [--full-page] [--format png|jpeg|webp]",
-        );
-        process.exit(1);
-      }
-      const urls = validateUrls(positionals);
-      const shotOpts: ScreenshotOptions = {};
-      if (flags["full-page"]) shotOpts.fullPage = true;
-      if (typeof flags.format === "string") {
-        const f = flags.format.toLowerCase();
-        if (f !== "png" && f !== "jpeg" && f !== "webp") {
-          throw new CrawlError("--format must be one of: png, jpeg, webp");
-        }
-        shotOpts.format = f as ScreenshotFormat;
-      }
-      if (urls.length === 1) {
-        await screenshot(urls[0], shotOpts);
-      } else {
-        await runConcurrent(urls, (u) => screenshot(u, shotOpts), { labelFn: String });
-      }
-      break;
-    }
-    case "snapshot": {
-      if (positionals.length === 0) {
-        console.error("Error: URL is required.\nUsage: node index.js snapshot <url> [url2 ...]");
-        process.exit(1);
-      }
-      const urls = validateUrls(positionals);
-      if (urls.length === 1) {
-        await snapshot(urls[0]);
-      } else {
-        await runConcurrent(urls, (u) => snapshot(u), { labelFn: String });
-      }
-      break;
-    }
-    case "tomarkdown": {
-      if (positionals.length === 0) {
-        console.error(
-          "Error: at least one file path is required.\nUsage: node index.js tomarkdown <file> [file2 ...]",
-        );
-        process.exit(1);
-      }
-      // File paths: do NOT normalize as URLs. The command itself rejects http(s) args.
-      await tomarkdown(positionals);
-      break;
-    }
-    default:
-      printUsage();
+  try {
+    await command.run(parsed, context);
+  } finally {
+    context.dispose();
   }
 }

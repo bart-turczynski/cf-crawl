@@ -9,20 +9,16 @@ vi.mock("../src/config.js", () => ({
 }));
 
 vi.mock("../src/output.js", () => ({
-  ensureOutputDir: vi.fn().mockResolvedValue(undefined),
+  saveJson: vi.fn().mockResolvedValue("/tmp/cf-crawl-test-output/out.json"),
 }));
 
 vi.mock("node:fs/promises", () => ({
   readFile: vi.fn(),
-  writeFile: vi.fn().mockResolvedValue(undefined),
 }));
 
 const { json } = await import("../src/commands/json.js");
 const { cfFetch } = (await import("../src/api-client.js")) as { cfFetch: Mock };
-const fsPromises = (await import("node:fs/promises")) as unknown as {
-  readFile: Mock;
-  writeFile: Mock;
-};
+const fsPromises = (await import("node:fs/promises")) as unknown as { readFile: Mock };
 const { CrawlError } = await import("../src/errors.js");
 
 describe("json command", () => {

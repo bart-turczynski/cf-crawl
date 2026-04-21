@@ -2,6 +2,10 @@
  * Custom error classes for crawl operations.
  */
 
+interface BaseErrorOptions {
+  cause?: Error;
+}
+
 interface CrawlErrorOptions {
   cause?: Error;
   retryable?: boolean;
@@ -12,6 +16,20 @@ interface ApiErrorOptions {
   errors?: Array<{ code?: number; message: string }>;
   cause?: Error;
   retryable?: boolean;
+}
+
+export class UsageError extends Error {
+  constructor(message: string, { cause }: BaseErrorOptions = {}) {
+    super(message, { cause });
+    this.name = "UsageError";
+  }
+}
+
+export class ConfigError extends Error {
+  constructor(message: string, { cause }: BaseErrorOptions = {}) {
+    super(message, { cause });
+    this.name = "ConfigError";
+  }
 }
 
 export class CrawlError extends Error {

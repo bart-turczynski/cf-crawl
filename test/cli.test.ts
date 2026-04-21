@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
+import { ConfigError } from "../src/errors.js";
 
-// Mock all external dependencies so no real API calls are made
 vi.mock("../src/config.js", () => ({
   CF_ACCOUNT_ID: "fake-account-id",
   CF_API_TOKEN: "fake-api-token",
@@ -53,42 +53,22 @@ vi.mock("../src/job-log.js", () => ({
 
 describe("cli", () => {
   let originalArgv: string[];
-  let exitSpy: ReturnType<typeof vi.spyOn>;
-  let errorSpy: ReturnType<typeof vi.spyOn>;
   let logSpy: ReturnType<typeof vi.spyOn>;
+  let baselineSigintListeners: number;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     vi.resetModules();
     originalArgv = process.argv;
-    exitSpy = vi.spyOn(process, "exit").mockImplementation((() => {
-      throw new Error("process.exit called");
-    }) as unknown as (code?: number) => never);
-    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    baselineSigintListeners = process.listenerCount("SIGINT");
     logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const { validateEnv } = (await import("../src/config.js")) as { validateEnv: Mock };
+    validateEnv.mockImplementation(() => undefined);
   });
 
   afterEach(() => {
     process.argv = originalArgv;
-    exitSpy.mockRestore();
-    errorSpy.mockRestore();
     logSpy.mockRestore();
-  });
-
-  describe("trackJob / untrackJob", () => {
-    it("trackJob adds a jobId to the active set and untrackJob removes it", async () => {
-      const { trackJob, untrackJob } = await import("../src/cli.js");
-
-      // trackJob should not throw
-      trackJob("job-1");
-      trackJob("job-2");
-
-      // untrackJob should not throw
-      untrackJob("job-1");
-
-      // Calling untrackJob on a non-existent id should not throw
-      untrackJob("non-existent");
-    });
   });
 
   describe("main() with no command", () => {
@@ -106,33 +86,68 @@ describe("cli", () => {
     });
   });
 
-  describe("crawl with no URL", () => {
-    it("exits with error when no URL is provided", async () => {
+  describe("SIGINT lifecycle", () => {
+    it("cleans up SIGINT listeners across repeated successful runs", async () => {
+      const { content } = (await import("../src/commands/content.js")) as { content: Mock };
+      content.mockResolvedValue(undefined);
+      const emitWarningSpy = vi.spyOn(process, "emitWarning").mockImplementation(() => {});
+      const { main } = await import("../src/cli.js");
+
+      for (let i = 0; i < 12; i++) {
+        process.argv = ["node", "index.js", "content", "https://example.com"];
+        await main();
+        expect(process.listenerCount("SIGINT")).toBe(baselineSigintListeners);
+      }
+
+      const warningMessages = emitWarningSpy.mock.calls.map((call) => String(call[0]));
+      expect(
+        warningMessages.some((message) =>
+          message.includes("Possible EventEmitter memory leak detected"),
+        ),
+      ).toBe(false);
+      emitWarningSpy.mockRestore();
+    });
+
+    it("cleans up SIGINT listeners after command failures", async () => {
+      const { scrape } = (await import("../src/commands/scrape.js")) as { scrape: Mock };
+      scrape.mockRejectedValue(new Error("boom"));
+      process.argv = ["node", "index.js", "scrape", "https://example.com"];
+      const { main } = await import("../src/cli.js");
+
+      await expect(main()).rejects.toThrow("boom");
+      expect(process.listenerCount("SIGINT")).toBe(baselineSigintListeners);
+    });
+
+    it("does not leak SIGINT listeners on usage errors", async () => {
+      process.argv = ["node", "index.js", "markdown"];
+      const { main } = await import("../src/cli.js");
+
+      await expect(main()).rejects.toThrow(/URL is required/);
+      expect(process.listenerCount("SIGINT")).toBe(baselineSigintListeners);
+    });
+
+    it("does not register SIGINT listeners on config errors", async () => {
+      const { validateEnv } = (await import("../src/config.js")) as { validateEnv: Mock };
+      validateEnv.mockImplementation(() => {
+        throw new ConfigError("Missing CF_ACCOUNT_ID or CF_API_TOKEN in .env");
+      });
+
+      process.argv = ["node", "index.js", "jobs"];
+      const { main } = await import("../src/cli.js");
+
+      await expect(main()).rejects.toThrow(ConfigError);
+      expect(process.listenerCount("SIGINT")).toBe(baselineSigintListeners);
+    });
+  });
+
+  describe("crawl", () => {
+    it("throws a usage error when no URL is provided", async () => {
       process.argv = ["node", "index.js", "crawl"];
       const { main } = await import("../src/cli.js");
 
-      await expect(main()).rejects.toThrow("process.exit called");
-
-      expect(exitSpy).toHaveBeenCalledWith(1);
-      const errorOutput = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-      expect(errorOutput).toContain("URL is required");
+      await expect(main()).rejects.toThrow(/URL is required/);
     });
-  });
 
-  describe("scrape with no URL", () => {
-    it("exits with error when no URL is provided", async () => {
-      process.argv = ["node", "index.js", "scrape"];
-      const { main } = await import("../src/cli.js");
-
-      await expect(main()).rejects.toThrow("process.exit called");
-
-      expect(exitSpy).toHaveBeenCalledWith(1);
-      const errorOutput = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-      expect(errorOutput).toContain("URL is required");
-    });
-  });
-
-  describe("crawl dispatches to submitCrawl", () => {
     it("calls submitCrawl and pollCrawlJobs for a single URL", async () => {
       const { submitCrawl, pollCrawlJobs } = (await import("../src/commands/crawl.js")) as {
         submitCrawl: Mock;
@@ -154,7 +169,14 @@ describe("cli", () => {
     });
   });
 
-  describe("scrape dispatches to scrape command", () => {
+  describe("scrape", () => {
+    it("throws a usage error when no URL is provided", async () => {
+      process.argv = ["node", "index.js", "scrape"];
+      const { main } = await import("../src/cli.js");
+
+      await expect(main()).rejects.toThrow(/URL is required/);
+    });
+
     it("calls scrape for a single URL", async () => {
       const { scrape } = (await import("../src/commands/scrape.js")) as { scrape: Mock };
       scrape.mockResolvedValue(undefined);
@@ -168,20 +190,14 @@ describe("cli", () => {
     });
   });
 
-  describe("markdown with no URL", () => {
-    it("exits with error when no URL is provided", async () => {
+  describe("markdown", () => {
+    it("throws a usage error when no URL is provided", async () => {
       process.argv = ["node", "index.js", "markdown"];
       const { main } = await import("../src/cli.js");
 
-      await expect(main()).rejects.toThrow("process.exit called");
-
-      expect(exitSpy).toHaveBeenCalledWith(1);
-      const errorOutput = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-      expect(errorOutput).toContain("URL is required");
+      await expect(main()).rejects.toThrow(/URL is required/);
     });
-  });
 
-  describe("markdown dispatches to markdown command", () => {
     it("calls markdown for a single URL", async () => {
       const { markdown } = (await import("../src/commands/markdown.js")) as { markdown: Mock };
       markdown.mockResolvedValue(undefined);
@@ -204,8 +220,10 @@ describe("cli", () => {
       await main();
 
       expect(markdown).toHaveBeenCalledTimes(2);
-      expect(markdown).toHaveBeenCalledWith("https://example.com/");
-      expect(markdown).toHaveBeenCalledWith("https://example.org/");
+      expect(markdown.mock.calls.map((call) => call[0])).toEqual([
+        "https://example.com/",
+        "https://example.org/",
+      ]);
     });
   });
 
@@ -241,10 +259,7 @@ describe("cli", () => {
     it("json requires --prompt", async () => {
       process.argv = ["node", "index.js", "json", "https://example.com"];
       const { main } = await import("../src/cli.js");
-      await expect(main()).rejects.toThrow("process.exit called");
-      expect(exitSpy).toHaveBeenCalledWith(1);
-      const errorOutput = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-      expect(errorOutput).toMatch(/--prompt/);
+      await expect(main()).rejects.toThrow(/--prompt/);
     });
 
     it("json passes prompt and schemaPath", async () => {
@@ -325,11 +340,10 @@ describe("cli", () => {
       expect(tomarkdown).toHaveBeenCalledWith(["./report.pdf", "./notes.docx"]);
     });
 
-    it("tomarkdown with no args exits 1", async () => {
+    it("tomarkdown throws a usage error when no args are provided", async () => {
       process.argv = ["node", "index.js", "tomarkdown"];
       const { main } = await import("../src/cli.js");
-      await expect(main()).rejects.toThrow("process.exit called");
-      expect(exitSpy).toHaveBeenCalledWith(1);
+      await expect(main()).rejects.toThrow(/at least one file path is required/);
     });
   });
 });

@@ -4,7 +4,6 @@ import type { JobEntry } from "../src/types.js";
 vi.mock("node:fs/promises", () => ({
   appendFile: vi.fn(() => Promise.resolve()),
   readFile: vi.fn(() => Promise.resolve("")),
-  writeFile: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("../src/output.js", () => ({
@@ -30,7 +29,8 @@ describe("job-log", () => {
         url: "https://example.com",
         status: "started",
         startedAt: new Date().toISOString(),
-      } as JobEntry;
+      } satisfies JobEntry;
+
       await logJob(entry);
 
       expect(ensureOutputDir).toHaveBeenCalledTimes(1);
@@ -43,18 +43,48 @@ describe("job-log", () => {
   });
 
   describe("readJobLog", () => {
-    it("returns parsed entries from the JSONL file", async () => {
+    it("folds append-only events by jobId", async () => {
       const { readFile } = (await import("node:fs/promises")) as { readFile: Mock };
-      const entries = [
-        { jobId: "abc-123", url: "https://example.com" },
-        { jobId: "def-456", url: "https://other.com" },
-      ];
-      readFile.mockResolvedValue(entries.map((e) => JSON.stringify(e)).join("\n") + "\n");
+      readFile.mockResolvedValue(
+        [
+          JSON.stringify({
+            jobId: "abc-123",
+            url: "https://example.com",
+            status: "started",
+            startedAt: "2026-04-21T20:00:00.000Z",
+          }),
+          JSON.stringify({
+            jobId: "def-456",
+            url: "https://other.com",
+            status: "started",
+          }),
+          JSON.stringify({
+            jobId: "abc-123",
+            status: "completed",
+            finished: 42,
+            updatedAt: "2026-04-21T20:05:00.000Z",
+          }),
+        ].join("\n") + "\n",
+      );
 
       const { readJobLog } = await import("../src/job-log.js");
       const result = await readJobLog();
 
-      expect(result).toEqual(entries);
+      expect(result).toEqual([
+        {
+          jobId: "abc-123",
+          url: "https://example.com",
+          status: "completed",
+          startedAt: "2026-04-21T20:00:00.000Z",
+          finished: 42,
+          updatedAt: "2026-04-21T20:05:00.000Z",
+        },
+        {
+          jobId: "def-456",
+          url: "https://other.com",
+          status: "started",
+        },
+      ]);
       expect(readFile).toHaveBeenCalledWith(expect.stringContaining("jobs.jsonl"), "utf-8");
     });
 
@@ -72,59 +102,31 @@ describe("job-log", () => {
   });
 
   describe("updateJobLog", () => {
-    it("updates an existing entry by jobId", async () => {
-      const { readFile, writeFile } = (await import("node:fs/promises")) as {
-        readFile: Mock;
-        writeFile: Mock;
-      };
-      const existing = [
-        { jobId: "abc-123", url: "https://example.com", status: "started" },
-        { jobId: "def-456", url: "https://other.com", status: "started" },
-      ];
-      readFile.mockResolvedValue(existing.map((e) => JSON.stringify(e)).join("\n") + "\n");
-
+    it("appends an update event for an existing entry", async () => {
+      const { appendFile } = (await import("node:fs/promises")) as { appendFile: Mock };
       const { updateJobLog } = await import("../src/job-log.js");
-      await updateJobLog("abc-123", { status: "completed" });
 
-      expect(writeFile).toHaveBeenCalledTimes(1);
-      const written = writeFile.mock.calls[0][1] as string;
-      const lines = written
-        .trim()
-        .split("\n")
-        .map((l: string) => JSON.parse(l));
+      await updateJobLog("abc-123", { status: "completed", finished: 10 });
 
-      expect(lines).toHaveLength(2);
-      expect(lines[0].jobId).toBe("abc-123");
-      expect(lines[0].status).toBe("completed");
-      expect(lines[0].updatedAt).toEqual(expect.any(String));
-      // Second entry unchanged (except no updatedAt added)
-      expect(lines[1].jobId).toBe("def-456");
-      expect(lines[1].status).toBe("started");
+      expect(appendFile).toHaveBeenCalledTimes(1);
+      const event = JSON.parse((appendFile.mock.calls[0][1] as string).trim()) as JobEntry;
+      expect(event.jobId).toBe("abc-123");
+      expect(event.status).toBe("completed");
+      expect(event.finished).toBe(10);
+      expect(event.updatedAt).toEqual(expect.any(String));
     });
 
-    it("adds a new entry when jobId is not found", async () => {
-      const { readFile, writeFile } = (await import("node:fs/promises")) as {
-        readFile: Mock;
-        writeFile: Mock;
-      };
-      const existing = [{ jobId: "abc-123", url: "https://example.com", status: "started" }];
-      readFile.mockResolvedValue(existing.map((e) => JSON.stringify(e)).join("\n") + "\n");
-
+    it("appends an update event for a previously unseen jobId", async () => {
+      const { appendFile } = (await import("node:fs/promises")) as { appendFile: Mock };
       const { updateJobLog } = await import("../src/job-log.js");
+
       await updateJobLog("new-999", { status: "interrupted" });
 
-      expect(writeFile).toHaveBeenCalledTimes(1);
-      const written = writeFile.mock.calls[0][1] as string;
-      const lines = written
-        .trim()
-        .split("\n")
-        .map((l: string) => JSON.parse(l));
-
-      expect(lines).toHaveLength(2);
-      expect(lines[0].jobId).toBe("abc-123");
-      expect(lines[1].jobId).toBe("new-999");
-      expect(lines[1].status).toBe("interrupted");
-      expect(lines[1].updatedAt).toEqual(expect.any(String));
+      expect(appendFile).toHaveBeenCalledTimes(1);
+      const event = JSON.parse((appendFile.mock.calls[0][1] as string).trim()) as JobEntry;
+      expect(event.jobId).toBe("new-999");
+      expect(event.status).toBe("interrupted");
+      expect(event.updatedAt).toEqual(expect.any(String));
     });
   });
 });

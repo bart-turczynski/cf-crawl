@@ -4,7 +4,7 @@
 
 import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
-import { saveResult } from "../output.js";
+import { saveJson } from "../output.js";
 import type { CfApiResponse, ScrapeResultGroup, SelectorSpec } from "../types.js";
 
 export const DEFAULT_SELECTORS: SelectorSpec[] = [
@@ -46,8 +46,6 @@ export async function scrape(
   }
 
   const slug = urlSlug(url);
-  // saveResult expects CfApiResponse<CrawlResult> but scrape results have a different shape
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await saveResult(`scrape_${slug}_${timestamp()}.json`, result as any);
+  await saveJson(`scrape_${slug}_${timestamp()}.json`, result);
   return result;
 }

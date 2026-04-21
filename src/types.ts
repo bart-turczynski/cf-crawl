@@ -2,16 +2,20 @@
 
 export interface JobEntry {
   jobId: string;
-  url: string;
+  url?: string;
   render?: boolean;
   limit?: number;
   max_depth?: number | null;
-  startedAt: string;
-  status: string;
+  startedAt?: string;
+  status?: string;
   updatedAt?: string;
   finished?: number;
   skipped?: number;
   downloaded?: boolean;
+}
+
+export interface JobLogEvent extends Partial<JobEntry> {
+  jobId: string;
 }
 
 // --- CLI ---

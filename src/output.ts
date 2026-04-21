@@ -40,6 +40,14 @@ export async function saveText(filename: string, text: string): Promise<string> 
   return filepath;
 }
 
+export async function saveJson<T>(filename: string, data: T): Promise<string> {
+  await ensureOutputDir();
+  const filepath = join(OUTPUT_DIR, filename);
+  await writeFile(filepath, JSON.stringify(data, null, 2));
+  console.log(`Saved: ${filepath}`);
+  return filepath;
+}
+
 export async function saveResult(
   filename: string,
   data: CfApiResponse<CrawlResult>,
