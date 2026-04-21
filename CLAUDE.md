@@ -59,6 +59,7 @@ Commands live in `src/commands/` (crawl, scrape, markdown, content, links, json,
 - **`src/utils.ts`** — `sleep`, `backoffDelay`, `timestamp`, `normalizeUrl`, `urlSlug`, `runConcurrent`
 - **`src/output.ts`** — `saveResult`, `saveBinary`, `saveText`, `ensureOutputDir` (cached mkdir), `StreamingJsonWriter` / `StreamingJsonlWriter` for incremental disk writes
 - **`src/job-log.ts`** — JSONL persistence for job tracking
+- **`src/types.ts`** — Shared type definitions (`JobEntry`, `Flags`, `CrawlResult`, `CrawlRecord`, `ResultWriter`, `OutputFormat`, screenshot/snapshot/json option shapes, etc.). No runtime code; imported by most modules
 
 Dependency graph (no cycles, max 3 levels deep):
 
@@ -89,7 +90,7 @@ Requires `.env` with Cloudflare credentials (see `.env.example`):
 - Only runtime dependency is `dotenv`
 - ESLint (flat config) with `typescript-eslint` + Prettier integration
 - Prettier: double quotes, semicolons, trailing commas, 100 char width
-- Default mode is fast HTML-only (no rendering, free during beta). Use `--render` for full browser rendering
+- `crawl` defaults to fast HTML-only mode (no rendering, free during beta); pass `--render` for full browser rendering. `--render` applies only to `crawl` — `scrape`, `markdown`, `content`, `links`, `json`, `pdf`, `screenshot`, `snapshot` always use the endpoint's native behavior (most are browser-rendered by default)
 - Crawl jobs are async: POST `/crawl`, poll `/crawl/{jobId}` every 10s with cursor-based pagination. Max poll ~60 minutes
 - Scrape is synchronous: single POST `/scrape` returns immediately
 - Markdown is synchronous: single POST `/markdown` returns a plain markdown string; always uses full browser rendering (no `--render` flag)
