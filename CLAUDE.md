@@ -16,6 +16,13 @@ npm run crawl -- <url> [<url2> ...]
 npm run crawl:render -- <url> [<url2> ...]
 npm run scrape -- <url> [<url2> ...]
 npm run markdown -- <url> [<url2> ...]
+npm run content -- <url> [<url2> ...]
+npm run links -- <url> [--visible-only] [--exclude-external]
+npm run json -- <url> --prompt "..." [--schema ./schema.json]
+npm run pdf -- <url> [<url2> ...]
+npm run screenshot -- <url> [--full-page] [--format png|jpeg|webp]
+npm run snapshot -- <url> [<url2> ...]
+npm run tomarkdown -- <file> [<file2> ...]
 npm run status -- <jobId>
 npm run download -- <jobId>
 npm run jobs
@@ -44,13 +51,13 @@ npx vitest run -t "normalizeUrl"
 
 Modular ESM structure under `src/`. Entry point: `index.ts` -> `src/cli.ts` (arg parsing, command dispatch).
 
-Commands live in `src/commands/` (crawl, scrape, markdown, status, download, jobs). Shared infrastructure:
+Commands live in `src/commands/` (crawl, scrape, markdown, content, links, json, pdf, screenshot, snapshot, tomarkdown, status, download, jobs). Shared infrastructure:
 
-- **`src/api-client.ts`** — `cfFetch` with retry + exponential backoff + rate limiting
-- **`src/config.ts`** — Constants, env validation, status sets (`COMPLETED_STATUSES`, `FAILED_STATUSES`)
-- **`src/errors.ts`** — `CrawlError`, `ApiError` with `retryable` flag
-- **`src/utils.ts`** — `sleep`, `backoffDelay`, `timestamp`, `normalizeUrl`, `runConcurrent`
-- **`src/output.ts`** — `saveResult`, `ensureOutputDir` (cached mkdir), `StreamingJsonWriter` / `StreamingJsonlWriter` for incremental disk writes
+- **`src/api-client.ts`** — `cfFetch` (JSON), `cfFetchBinary` (binary responses for `/pdf`, `/screenshot`), `cfFetchMultipart` (file uploads for Workers AI `/ai/tomarkdown`). All share retry + exponential backoff + rate limiting
+- **`src/config.ts`** — Constants, env validation, status sets (`COMPLETED_STATUSES`, `FAILED_STATUSES`). `API_BASE()` → browser-rendering; `WORKERS_AI_BASE()` → Workers AI
+- **`src/errors.ts`** — `CrawlError`, `ApiError` with `retryable` flag (overridable)
+- **`src/utils.ts`** — `sleep`, `backoffDelay`, `timestamp`, `normalizeUrl`, `urlSlug`, `runConcurrent`
+- **`src/output.ts`** — `saveResult`, `saveBinary`, `saveText`, `ensureOutputDir` (cached mkdir), `StreamingJsonWriter` / `StreamingJsonlWriter` for incremental disk writes
 - **`src/job-log.ts`** — JSONL persistence for job tracking
 
 Dependency graph (no cycles, max 3 levels deep):
@@ -86,7 +93,10 @@ Requires `.env` with Cloudflare credentials (see `.env.example`):
 - Crawl jobs are async: POST `/crawl`, poll `/crawl/{jobId}` every 10s with cursor-based pagination. Max poll ~60 minutes
 - Scrape is synchronous: single POST `/scrape` returns immediately
 - Markdown is synchronous: single POST `/markdown` returns a plain markdown string; always uses full browser rendering (no `--render` flag)
-- `cfFetch` retries transient errors up to 4 times with exponential backoff
+- `content`, `links`, `json`, `pdf`, `screenshot`, `snapshot` are all synchronous single-page operations on live URLs (no crawl integration — by design)
+- `tomarkdown` multipart-uploads LOCAL files (PDF, docx, images, etc.) to Workers AI `/ai/tomarkdown`. It rejects http(s) args with a guardrail — use `markdown` for live URLs, or (future) a local HTML-to-markdown converter
+- `json` requires `--prompt "..."`; pass `--schema <path>` to constrain the response to a JSON schema (sent as `response_format: { type: "json_schema", json_schema: <schema> }`)
+- `cfFetch` / `cfFetchBinary` / `cfFetchMultipart` all retry transient errors up to 4 times with exponential backoff
 - Large crawl results are streamed to disk incrementally during pagination (never held fully in memory). Use `--format jsonl` for one-record-per-line output suited to streaming pipelines
 
 ## Testing

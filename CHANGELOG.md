@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [3.4.0] - 2026-04-21
+
+### Added
+
+- Seven new commands wrapping additional Cloudflare endpoints, all single-page by design:
+  - `content` — `POST /content`, returns rendered HTML, saved as `content_{slug}_{ts}.html`.
+  - `links` — `POST /links`, returns all hyperlinks. Flags: `--visible-only`, `--exclude-external`.
+  - `json` — `POST /json`, AI-extracted structured data. Requires `--prompt "..."`; optional `--schema <path>` passed as `response_format: { type: "json_schema", json_schema: ... }`.
+  - `pdf` — `POST /pdf`, binary PDF written to `pdf_{slug}_{ts}.pdf`.
+  - `screenshot` — `POST /screenshot`, binary image. Flags: `--full-page`, `--format png|jpeg|webp`.
+  - `snapshot` — `POST /snapshot`, JSON containing HTML + base64 screenshot in one record.
+  - `tomarkdown` — Workers AI `POST /ai/tomarkdown` for local file uploads (PDF, docx, images, etc.). Multipart upload, one `.md` per input file. **Rejects http(s) args** with a guardrail — live URLs should use `markdown` (browser-rendering), not `/ai/tomarkdown`.
+- `WORKERS_AI_BASE()` config helper for the Workers AI API base URL.
+- `cfFetchBinary(path, options)` — shares retry/backoff with `cfFetch`, returns `{ result: Buffer, contentType }`. Powers `pdf` and `screenshot`.
+- `cfFetchMultipart(baseUrl, path, formData)` — same retry semantics; omits `Content-Type` so fetch sets the multipart boundary. Powers `tomarkdown`.
+- `saveBinary(filename, buffer)` and `saveText(filename, text)` output helpers.
+- `urlSlug(url)` utility extracted from `scrape`/`markdown` and reused across new commands.
+- `ApiError` constructor now accepts an explicit `retryable` override (used internally so non-JSON 5xx responses don't retry indefinitely — matches prior behavior).
+- `npm run {content,links,json,pdf,screenshot,snapshot,tomarkdown}` scripts.
+- 22 new tests: `cfFetchBinary` (3), `cfFetchMultipart` (2), `json` command (4), `tomarkdown` command (3), plus 10 CLI dispatch tests for the new endpoints.
+
+### Refactored
+
+- `api-client.ts` split into a private `executeWithRetry(url, init, parse, retryOpts)` helper used by all three fetch variants. Retry/backoff/rate-limit logic lives in one place instead of duplicated per flavor.
+- `markdown` and `scrape` commands now use the shared `urlSlug` helper.
+
+### Notes
+
+- All new commands operate on **single URLs (or a batch passed on the CLI)**. No integration with the async `/crawl` job. Site-wide markdown conversion will be solved later with a local (non-API) converter to avoid consuming additional API credits.
+
+## [3.3.0] - 2026-04-21
+
+### Added
+
+- `scrape` DEFAULT_SELECTORS now captures `li`, `td`, and `th`. Listicle and comparison-table pages expose most of their entity-dense content (tool names, vendor brands, pricing cells) through these tags; classifiers and NLP pipelines consuming scrape output now receive that content out of the box.
+
 ## [3.2.0] - 2026-04-10
 
 ### Added

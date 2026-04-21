@@ -24,6 +24,22 @@ export function ensureOutputDir(): Promise<string | undefined> {
   return mkdirPromise;
 }
 
+export async function saveBinary(filename: string, buffer: Buffer): Promise<string> {
+  await ensureOutputDir();
+  const filepath = join(OUTPUT_DIR, filename);
+  await writeFile(filepath, buffer);
+  console.log(`Saved: ${filepath}`);
+  return filepath;
+}
+
+export async function saveText(filename: string, text: string): Promise<string> {
+  await ensureOutputDir();
+  const filepath = join(OUTPUT_DIR, filename);
+  await writeFile(filepath, text);
+  console.log(`Saved: ${filepath}`);
+  return filepath;
+}
+
 export async function saveResult(
   filename: string,
   data: CfApiResponse<CrawlResult>,

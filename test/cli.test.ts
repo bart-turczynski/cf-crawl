@@ -39,6 +39,14 @@ vi.mock("../src/commands/jobs.js", () => ({
   listJobs: vi.fn(),
 }));
 
+vi.mock("../src/commands/content.js", () => ({ content: vi.fn() }));
+vi.mock("../src/commands/links.js", () => ({ links: vi.fn() }));
+vi.mock("../src/commands/json.js", () => ({ json: vi.fn() }));
+vi.mock("../src/commands/pdf.js", () => ({ pdf: vi.fn() }));
+vi.mock("../src/commands/screenshot.js", () => ({ screenshot: vi.fn() }));
+vi.mock("../src/commands/snapshot.js", () => ({ snapshot: vi.fn() }));
+vi.mock("../src/commands/tomarkdown.js", () => ({ tomarkdown: vi.fn() }));
+
 vi.mock("../src/job-log.js", () => ({
   updateJobLog: vi.fn(() => Promise.resolve()),
 }));
@@ -198,6 +206,130 @@ describe("cli", () => {
       expect(markdown).toHaveBeenCalledTimes(2);
       expect(markdown).toHaveBeenCalledWith("https://example.com/");
       expect(markdown).toHaveBeenCalledWith("https://example.org/");
+    });
+  });
+
+  describe("new endpoints dispatch", () => {
+    it("content calls content for a URL", async () => {
+      const { content } = (await import("../src/commands/content.js")) as { content: Mock };
+      content.mockResolvedValue(undefined);
+      process.argv = ["node", "index.js", "content", "https://example.com"];
+      const { main } = await import("../src/cli.js");
+      await main();
+      expect(content).toHaveBeenCalledWith("https://example.com/");
+    });
+
+    it("links passes --visible-only and --exclude-external flags", async () => {
+      const { links } = (await import("../src/commands/links.js")) as { links: Mock };
+      links.mockResolvedValue(undefined);
+      process.argv = [
+        "node",
+        "index.js",
+        "links",
+        "https://example.com",
+        "--visible-only",
+        "--exclude-external",
+      ];
+      const { main } = await import("../src/cli.js");
+      await main();
+      expect(links).toHaveBeenCalledWith("https://example.com/", {
+        visibleLinksOnly: true,
+        excludeExternalLinks: true,
+      });
+    });
+
+    it("json requires --prompt", async () => {
+      process.argv = ["node", "index.js", "json", "https://example.com"];
+      const { main } = await import("../src/cli.js");
+      await expect(main()).rejects.toThrow("process.exit called");
+      expect(exitSpy).toHaveBeenCalledWith(1);
+      const errorOutput = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+      expect(errorOutput).toMatch(/--prompt/);
+    });
+
+    it("json passes prompt and schemaPath", async () => {
+      const { json } = (await import("../src/commands/json.js")) as { json: Mock };
+      json.mockResolvedValue(undefined);
+      process.argv = [
+        "node",
+        "index.js",
+        "json",
+        "https://example.com",
+        "--prompt",
+        "extract title",
+        "--schema",
+        "./schema.json",
+      ];
+      const { main } = await import("../src/cli.js");
+      await main();
+      expect(json).toHaveBeenCalledWith("https://example.com/", {
+        prompt: "extract title",
+        schemaPath: "./schema.json",
+      });
+    });
+
+    it("pdf calls pdf for a URL", async () => {
+      const { pdf } = (await import("../src/commands/pdf.js")) as { pdf: Mock };
+      pdf.mockResolvedValue(undefined);
+      process.argv = ["node", "index.js", "pdf", "https://example.com"];
+      const { main } = await import("../src/cli.js");
+      await main();
+      expect(pdf).toHaveBeenCalledWith("https://example.com/");
+    });
+
+    it("screenshot passes --full-page and --format", async () => {
+      const { screenshot } = (await import("../src/commands/screenshot.js")) as {
+        screenshot: Mock;
+      };
+      screenshot.mockResolvedValue(undefined);
+      process.argv = [
+        "node",
+        "index.js",
+        "screenshot",
+        "https://example.com",
+        "--full-page",
+        "--format",
+        "jpeg",
+      ];
+      const { main } = await import("../src/cli.js");
+      await main();
+      expect(screenshot).toHaveBeenCalledWith("https://example.com/", {
+        fullPage: true,
+        format: "jpeg",
+      });
+    });
+
+    it("screenshot rejects unsupported --format values", async () => {
+      process.argv = ["node", "index.js", "screenshot", "https://example.com", "--format", "gif"];
+      const { main } = await import("../src/cli.js");
+      await expect(main()).rejects.toThrow(/--format must be one of/);
+    });
+
+    it("snapshot calls snapshot for a URL", async () => {
+      const { snapshot } = (await import("../src/commands/snapshot.js")) as { snapshot: Mock };
+      snapshot.mockResolvedValue(undefined);
+      process.argv = ["node", "index.js", "snapshot", "https://example.com"];
+      const { main } = await import("../src/cli.js");
+      await main();
+      expect(snapshot).toHaveBeenCalledWith("https://example.com/");
+    });
+
+    it("tomarkdown passes file path positionals without URL-normalizing them", async () => {
+      const { tomarkdown } = (await import("../src/commands/tomarkdown.js")) as {
+        tomarkdown: Mock;
+      };
+      tomarkdown.mockResolvedValue(undefined);
+      process.argv = ["node", "index.js", "tomarkdown", "./report.pdf", "./notes.docx"];
+      const { main } = await import("../src/cli.js");
+      await main();
+      expect(tomarkdown).toHaveBeenCalledWith(["./report.pdf", "./notes.docx"]);
+    });
+
+    it("tomarkdown with no args exits 1", async () => {
+      process.argv = ["node", "index.js", "tomarkdown"];
+      const { main } = await import("../src/cli.js");
+      await expect(main()).rejects.toThrow("process.exit called");
+      expect(exitSpy).toHaveBeenCalledWith(1);
     });
   });
 });

@@ -19,6 +19,9 @@ export function CF_API_TOKEN(): string | undefined {
 export function API_BASE(): string {
   return `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/browser-rendering`;
 }
+export function WORKERS_AI_BASE(): string {
+  return `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai`;
+}
 export const OUTPUT_DIR: string = join(__dirname, "..", "output");
 
 export const RETRY_DEFAULTS: Required<RetryOptions> = {

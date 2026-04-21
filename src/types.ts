@@ -82,6 +82,40 @@ export interface ScrapeResultGroup {
   results?: unknown[];
 }
 
+// --- New endpoint response shapes ---
+
+export interface LinksOptions {
+  visibleLinksOnly?: boolean;
+  excludeExternalLinks?: boolean;
+}
+
+export interface JsonExtractionOptions {
+  prompt: string;
+  responseFormat?: unknown;
+}
+
+export interface SnapshotResult {
+  content?: string;
+  screenshot?: string;
+}
+
+export type ScreenshotFormat = "png" | "jpeg" | "webp";
+
+export interface ScreenshotOptions {
+  fullPage?: boolean;
+  format?: ScreenshotFormat;
+}
+
+export interface ToMarkdownResultItem {
+  id?: string;
+  name?: string;
+  mimeType?: string;
+  format?: string;
+  tokens?: number;
+  data?: string;
+  error?: string;
+}
+
 export interface SelectorSpec {
   selector: string;
 }

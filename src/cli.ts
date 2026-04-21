@@ -11,6 +11,13 @@ import { markdown } from "./commands/markdown.js";
 import { status } from "./commands/status.js";
 import { download } from "./commands/download.js";
 import { listJobs } from "./commands/jobs.js";
+import { content } from "./commands/content.js";
+import { links } from "./commands/links.js";
+import { json as jsonExtract } from "./commands/json.js";
+import { pdf } from "./commands/pdf.js";
+import { screenshot } from "./commands/screenshot.js";
+import { snapshot } from "./commands/snapshot.js";
+import { tomarkdown } from "./commands/tomarkdown.js";
 import { updateJobLog } from "./job-log.js";
 import type {
   Flags,
@@ -19,6 +26,9 @@ import type {
   ScrapeOptions,
   CrawlJob,
   OutputFormat,
+  LinksOptions,
+  ScreenshotOptions,
+  ScreenshotFormat,
 } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -93,12 +103,19 @@ function parseArgs(argv: string[]): ParsedArgs {
 function printUsage(): void {
   console.log(`
 Usage:
-  node index.js crawl <url> [url2 ...] [options]    Crawl site(s) concurrently (async)
-  node index.js scrape <url> [url2 ...] [options]   Scrape page(s) concurrently (sync)
-  node index.js markdown <url> [url2 ...]           Convert page(s) to markdown (sync)
-  node index.js status <jobId>                      Check crawl job status
-  node index.js download <jobId>                    Download results for a job
-  node index.js jobs                                List all logged jobs
+  node index.js crawl <url> [url2 ...] [options]       Crawl site(s) concurrently (async)
+  node index.js scrape <url> [url2 ...] [options]      Scrape page(s) concurrently (sync)
+  node index.js markdown <url> [url2 ...]              Convert page(s) to markdown (sync)
+  node index.js content <url> [url2 ...]               Fetch rendered HTML for page(s) (sync)
+  node index.js links <url> [url2 ...] [options]       List all hyperlinks on page(s) (sync)
+  node index.js json <url> --prompt "..." [opts]       AI-extract structured JSON (sync)
+  node index.js pdf <url> [url2 ...]                   Render page(s) to PDF (sync, binary)
+  node index.js screenshot <url> [url2 ...] [opts]     Capture page screenshot(s) (sync, binary)
+  node index.js snapshot <url> [url2 ...]              Capture HTML + screenshot in one call
+  node index.js tomarkdown <file> [file2 ...]          Convert local file(s) to markdown (Workers AI)
+  node index.js status <jobId>                         Check crawl job status
+  node index.js download <jobId>                       Download results for a job
+  node index.js jobs                                   List all logged jobs
 
 Crawl options:
   --render       Use full browser rendering (billed; default is fast HTML-only)
@@ -113,18 +130,34 @@ Download options:
 Scrape options:
   --wait N       Wait N ms before extracting (scrape always uses browser rendering)
 
+Links options:
+  --visible-only         Include only visible links
+  --exclude-external     Exclude off-domain links
+
+Json options:
+  --prompt "..."         (required) Natural-language extraction instruction
+  --schema <path>        (optional) Path to a JSON schema file for structured output
+
+Screenshot options:
+  --full-page            Capture full scrollable page (default: viewport only)
+  --format F             png | jpeg | webp (default: png)
+
 Markdown options:
   (no flags -- endpoint always uses full browser rendering)
 
 Examples:
   node index.js crawl example.com
   node index.js crawl site1.com site2.com --render --limit 100
-  node index.js crawl site1.com site2.com --no-wait
-  node index.js download 3ad0fe7f --format jsonl
-  node index.js status 3ad0fe7f-f607-4fb7-a371-8f19f11120b7
-  node index.js download 3ad0fe7f-f607-4fb7-a371-8f19f11120b7
   node index.js scrape https://example.com https://example.org
-  node index.js markdown https://example.com https://example.org
+  node index.js markdown https://example.com
+  node index.js content https://example.com
+  node index.js links https://example.com --exclude-external
+  node index.js json https://example.com --prompt "Extract title and main heading"
+  node index.js json https://example.com --prompt "..." --schema ./schema.json
+  node index.js pdf https://example.com
+  node index.js screenshot https://example.com --full-page --format jpeg
+  node index.js snapshot https://example.com
+  node index.js tomarkdown ./report.pdf ./notes.docx
   `);
 }
 
@@ -300,6 +333,121 @@ export async function main(): Promise<void> {
       } else {
         await runConcurrent(urls, (u) => markdown(u), { labelFn: String });
       }
+      break;
+    }
+    case "content": {
+      if (positionals.length === 0) {
+        console.error("Error: URL is required.\nUsage: node index.js content <url> [url2 ...]");
+        process.exit(1);
+      }
+      const urls = validateUrls(positionals);
+      if (urls.length === 1) {
+        await content(urls[0]);
+      } else {
+        await runConcurrent(urls, (u) => content(u), { labelFn: String });
+      }
+      break;
+    }
+    case "links": {
+      if (positionals.length === 0) {
+        console.error(
+          "Error: URL is required.\nUsage: node index.js links <url> [url2 ...] [--visible-only] [--exclude-external]",
+        );
+        process.exit(1);
+      }
+      const urls = validateUrls(positionals);
+      const linksOpts: LinksOptions = {};
+      if (flags["visible-only"]) linksOpts.visibleLinksOnly = true;
+      if (flags["exclude-external"]) linksOpts.excludeExternalLinks = true;
+      if (urls.length === 1) {
+        await links(urls[0], linksOpts);
+      } else {
+        await runConcurrent(urls, (u) => links(u, linksOpts), { labelFn: String });
+      }
+      break;
+    }
+    case "json": {
+      if (positionals.length === 0) {
+        console.error(
+          'Error: URL is required.\nUsage: node index.js json <url> --prompt "..." [--schema path]',
+        );
+        process.exit(1);
+      }
+      if (typeof flags.prompt !== "string" || flags.prompt.trim().length === 0) {
+        console.error('Error: --prompt "<text>" is required for `json`.');
+        process.exit(1);
+      }
+      const urls = validateUrls(positionals);
+      const jsonOpts = {
+        prompt: flags.prompt,
+        schemaPath: typeof flags.schema === "string" ? flags.schema : undefined,
+      };
+      if (urls.length === 1) {
+        await jsonExtract(urls[0], jsonOpts);
+      } else {
+        await runConcurrent(urls, (u) => jsonExtract(u, jsonOpts), { labelFn: String });
+      }
+      break;
+    }
+    case "pdf": {
+      if (positionals.length === 0) {
+        console.error("Error: URL is required.\nUsage: node index.js pdf <url> [url2 ...]");
+        process.exit(1);
+      }
+      const urls = validateUrls(positionals);
+      if (urls.length === 1) {
+        await pdf(urls[0]);
+      } else {
+        await runConcurrent(urls, (u) => pdf(u), { labelFn: String });
+      }
+      break;
+    }
+    case "screenshot": {
+      if (positionals.length === 0) {
+        console.error(
+          "Error: URL is required.\nUsage: node index.js screenshot <url> [url2 ...] [--full-page] [--format png|jpeg|webp]",
+        );
+        process.exit(1);
+      }
+      const urls = validateUrls(positionals);
+      const shotOpts: ScreenshotOptions = {};
+      if (flags["full-page"]) shotOpts.fullPage = true;
+      if (typeof flags.format === "string") {
+        const f = flags.format.toLowerCase();
+        if (f !== "png" && f !== "jpeg" && f !== "webp") {
+          throw new CrawlError("--format must be one of: png, jpeg, webp");
+        }
+        shotOpts.format = f as ScreenshotFormat;
+      }
+      if (urls.length === 1) {
+        await screenshot(urls[0], shotOpts);
+      } else {
+        await runConcurrent(urls, (u) => screenshot(u, shotOpts), { labelFn: String });
+      }
+      break;
+    }
+    case "snapshot": {
+      if (positionals.length === 0) {
+        console.error("Error: URL is required.\nUsage: node index.js snapshot <url> [url2 ...]");
+        process.exit(1);
+      }
+      const urls = validateUrls(positionals);
+      if (urls.length === 1) {
+        await snapshot(urls[0]);
+      } else {
+        await runConcurrent(urls, (u) => snapshot(u), { labelFn: String });
+      }
+      break;
+    }
+    case "tomarkdown": {
+      if (positionals.length === 0) {
+        console.error(
+          "Error: at least one file path is required.\nUsage: node index.js tomarkdown <file> [file2 ...]",
+        );
+        process.exit(1);
+      }
+      // File paths: do NOT normalize as URLs. The command itself rejects http(s) args.
+      await tomarkdown(positionals);
       break;
     }
     default:

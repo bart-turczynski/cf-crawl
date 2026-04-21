@@ -18,6 +18,14 @@ export function timestamp(): string {
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 }
 
+/** Slug a URL for use in output filenames. */
+export function urlSlug(url: string): string {
+  return url
+    .replace(/https?:\/\//, "")
+    .replace(/[/?.#&=]+/g, "_")
+    .replace(/_$/, "");
+}
+
 export function normalizeUrl(input: string): string {
   let url = input.trim();
   if (!/^https?:\/\//i.test(url)) {

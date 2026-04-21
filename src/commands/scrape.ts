@@ -2,7 +2,7 @@
  * Scrape command -- /scrape endpoint (synchronous, single page).
  */
 
-import { normalizeUrl, timestamp } from "../utils.js";
+import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
 import { saveResult } from "../output.js";
 import type { CfApiResponse, ScrapeResultGroup, SelectorSpec } from "../types.js";
@@ -14,6 +14,9 @@ export const DEFAULT_SELECTORS: SelectorSpec[] = [
   { selector: "h2" },
   { selector: "h3" },
   { selector: "p" },
+  { selector: "li" },
+  { selector: "td" },
+  { selector: "th" },
   { selector: "a[href]" },
   { selector: "img[src]" },
 ];
@@ -42,10 +45,7 @@ export async function scrape(
     console.log(`  ${group.selector}: ${group.results?.length ?? 0} element(s)`);
   }
 
-  const slug = url
-    .replace(/https?:\/\//, "")
-    .replace(/[/?.#&=]+/g, "_")
-    .replace(/_$/, "");
+  const slug = urlSlug(url);
   // saveResult expects CfApiResponse<CrawlResult> but scrape results have a different shape
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await saveResult(`scrape_${slug}_${timestamp()}.json`, result as any);
