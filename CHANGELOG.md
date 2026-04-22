@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 - Clarified `CLAUDE.md`: documented `src/types.ts` in the module list and narrowed the `--render` flag note to `crawl` only.
+- Updated `README.md`, `CLAUDE.md`, and `skill.md` to cover the current command set, output filenames, crawl follow-up commands, and the streamed-final-file crawl download behavior.
 
 ## [3.4.0] - 2026-04-21
 

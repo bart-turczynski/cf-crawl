@@ -54,8 +54,7 @@ const USAGE = {
   links: "node index.js links <url> [url2 ...] [--visible-only] [--exclude-external]",
   json: 'node index.js json <url> --prompt "..." [--schema path]',
   pdf: "node index.js pdf <url> [url2 ...]",
-  screenshot:
-    "node index.js screenshot <url> [url2 ...] [--full-page] [--format png|jpeg|webp]",
+  screenshot: "node index.js screenshot <url> [url2 ...] [--full-page] [--format png|jpeg|webp]",
   snapshot: "node index.js snapshot <url> [url2 ...]",
   tomarkdown: "node index.js tomarkdown <file> [file2 ...]",
 } as const;
@@ -242,11 +241,7 @@ function getOutputFormat(flags: Flags): OutputFormat | undefined {
 
 function getCrawlOptions(flags: Flags): { render: boolean; options: CrawlOptions } {
   const limit = getNumberFlag(flags, "limit", "--limit must be a positive integer", { min: 1 });
-  const maxDepth = getNumberFlag(
-    flags,
-    "max_depth",
-    "--max_depth must be a non-negative integer",
-  );
+  const maxDepth = getNumberFlag(flags, "max_depth", "--max_depth must be a non-negative integer");
   const format = getOutputFormat(flags);
 
   const options: CrawlOptions = {};

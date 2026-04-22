@@ -1,131 +1,127 @@
 ---
 name: cf-crawl
-description: Crawl, scrape, or convert websites to markdown using the Cloudflare Browser Rendering API. Use when the user says "crawl", "scrape", "markdown", or wants to fetch/extract content from URLs. Supports batch operations with up to 10 concurrent agents.
+description: Use the cf-crawl CLI to crawl sites, scrape pages, render HTML or PDFs, extract links or structured JSON, capture screenshots or snapshots, and convert local files to markdown.
 allowed-tools: Bash, Agent, Read
-argument-hint: "<crawl|scrape|markdown> <url> [url2 ...] [--render] [--limit N] [--max_depth N] [--wait N]"
+argument-hint: "<crawl|scrape|markdown|content|links|json|pdf|screenshot|snapshot|tomarkdown|status|download|jobs> ..."
 ---
 
 # cf-crawl
 
-Crawl or scrape websites via the Cloudflare Browser Rendering API using the `cf-crawl` CLI tool.
+Use the `cf-crawl` CLI from the project root to access the Cloudflare Browser Rendering API and Workers AI `tomarkdown`.
 
-All commands run from the project root (the directory containing `package.json`). Use `npm run <command> -- <args>` from there.
+## Command Selection
 
-## Parsing $ARGUMENTS
+Pick the command that matches the user's intent:
 
-Parse `$ARGUMENTS` to determine the command and parameters:
+| Intent                                                  | Command      |
+| ------------------------------------------------------- | ------------ |
+| Site-wide crawl, discover many pages, async job         | `crawl`      |
+| Extract structured page content from built-in selectors | `scrape`     |
+| Save readable page content as markdown                  | `markdown`   |
+| Fetch rendered HTML                                     | `content`    |
+| Extract hyperlinks                                      | `links`      |
+| Prompt-driven structured extraction                     | `json`       |
+| Render a PDF                                            | `pdf`        |
+| Capture a screenshot                                    | `screenshot` |
+| Capture HTML plus screenshot metadata                   | `snapshot`   |
+| Convert local files to markdown                         | `tomarkdown` |
+| Check crawl progress                                    | `status`     |
+| Download crawl results                                  | `download`   |
+| List locally tracked crawl jobs                         | `jobs`       |
 
-| Part            | How to detect                                                                                                              | Default                                                  |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| Command         | First word: `crawl`, `scrape`, or `markdown`                                                                               | `crawl`                                                  |
-| URLs            | Any tokens that look like URLs or domains (contain `.`)                                                                    | required, at least one                                   |
-| `--render`      | User says "render", "rendered", "full browser", "JS rendering" (**crawl only** — scrape and markdown always use a browser) | omit (fast HTML mode for crawl)                          |
-| `--limit N`     | User says "limit N", "cap at N", "max N pages"                                                                             | omit for scrape/markdown; see size tiers below for crawl |
-| `--max_depth N` | User says "depth N", "N levels deep"                                                                                       | omit                                                     |
-| `--wait N`      | User says "wait N ms", "page needs time to load", "JS-heavy" — scrape only                                                 | omit                                                     |
-| `--no-wait`     | User says "async", "don't wait", "fire and forget", "large", "full site" — OR if limit > 500 or no limit specified         | omit                                                     |
+URLs may be passed without `https://`; the CLI normalizes them internally.
 
-Pick `markdown` when the user wants **clean readable content** (e.g. "get the article text", "save these pages as markdown", "the scrape output is too messy"). Pick `scrape` when the user wants **structured element counts / specific selectors**.
+## Important Flags
 
-URLs work with or without `https://` prefix. Always pass them as-is to the CLI (it normalizes internally).
+| Flag                 | Applies to   | Meaning                                          |
+| -------------------- | ------------ | ------------------------------------------------ | ------------------------------- | ----------------------- |
+| `--render`           | `crawl` only | Full browser rendering instead of fast HTML mode |
+| `--limit N`          | `crawl`      | Max pages to crawl                               |
+| `--max_depth N`      | `crawl`      | Max link depth                                   |
+| `--no-wait`          | `crawl`      | Submit job and exit without polling              |
+| `--format json       | jsonl`       | `crawl`, `download`                              | Output format for crawl results |
+| `--wait N`           | `scrape`     | Delay before extraction                          |
+| `--visible-only`     | `links`      | Keep only visible links                          |
+| `--exclude-external` | `links`      | Exclude off-domain links                         |
+| `--prompt "..."`     | `json`       | Required extraction instruction                  |
+| `--schema <path>`    | `json`       | Optional JSON schema file                        |
+| `--full-page`        | `screenshot` | Capture the full page                            |
+| `--format png        | jpeg         | webp`                                            | `screenshot`                    | Screenshot image format |
 
-## Size tiers for crawl
+## Execution Guidance
 
-Decide the execution mode based on the expected crawl size:
+Prefer a single CLI invocation. The CLI already supports multiple live URLs in one run for:
 
-| Tier      | Condition                                                                | Behavior                                                                                               |
-| --------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| **Small** | `--limit` <= 500 (or user implies small scope)                           | Run synchronously — wait for results, report summary                                                   |
-| **Large** | `--limit` > 500, no limit, or user says "full site"/"large"/"everything" | Use `--no-wait` — submit the job, return job IDs, tell the user how to check status and download later |
+- `crawl`
+- `scrape`
+- `markdown`
+- `content`
+- `links`
+- `json`
+- `pdf`
+- `screenshot`
+- `snapshot`
 
-When in doubt about size, ask the user. A crawl with no `--limit` can discover 100K+ pages and run for an hour.
+`tomarkdown` accepts multiple local files in one invocation.
 
-## Single URL execution
-
-Run directly via Bash from the project root:
+Use Agent fan-out only if the user explicitly wants additional parallel work per URL beyond what the CLI already does.
 
 Examples:
 
-- `npm run crawl -- https://example.com --limit 100`
-- `npm run crawl -- https://example.com --no-wait` (large/async)
-- `npm run scrape -- https://example.com/page`
-- `npm run scrape -- https://example.com/page --wait 3000`
-- `npm run markdown -- https://example.com/article`
-
-## Multiple URLs execution
-
-**CRITICAL: Never exceed 10 concurrent agents. This is a hard billing safety limit.**
-
-When the user provides multiple URLs:
-
-1. Split the URLs into batches of **at most 10**.
-2. Launch one Agent (subagent_type: `general-purpose`) per URL in the batch, all in a **single message** so they run concurrently.
-3. Each agent runs `npm run <command> -- <url> [flags]` from the project root.
-4. If there are more than 10 URLs, wait for the first batch to complete, then launch the next batch.
-5. Collect and summarize all results after all batches complete.
-
-Agent prompt template for each URL:
-
-```
-Run this command from the cf-crawl project root and report the output:
-npm run <command> -- <url> [flags]
-
-Report back: the command you ran, whether it succeeded or failed, and the key output (job ID for async crawls, summary stats for completed crawls/scrapes, or the error message if it failed).
+```bash
+npm run crawl -- https://example.com --limit 100
+npm run crawl -- https://example.com --no-wait
+npm run scrape -- https://example.com/page --wait 3000
+npm run markdown -- https://example.com/article
+npm run content -- https://example.com
+npm run links -- https://example.com --visible-only --exclude-external
+npm run json -- https://example.com --prompt "Extract title and main CTA"
+npm run pdf -- https://example.com
+npm run screenshot -- https://example.com --full-page --format webp
+npm run snapshot -- https://example.com
+npm run tomarkdown -- ./report.pdf ./notes.docx
+npm run status -- <jobId>
+npm run download -- <jobId> --format jsonl
+npm run jobs
 ```
 
-For **large async crawls** with multiple URLs, each agent uses `--no-wait`. After all agents return, compile a table of job IDs for the user.
+## Crawl Size Guidance
 
-## Async crawl follow-up
+Use synchronous crawl mode when the scope is obviously small, such as `--limit 500` or less.
 
-After submitting async (large) crawls, tell the user they can check status or download results later. Provide the exact commands:
+Use `--no-wait` when:
 
+- the user asks for async or fire-and-forget behavior
+- the crawl is likely large
+- there is no explicit limit
+- the user wants the whole site
+
+For async crawls, provide follow-up commands:
+
+```bash
+npm run status -- <jobId>
+npm run download -- <jobId>
+npm run download -- <jobId> --format jsonl
+npm run jobs
 ```
-npm run status -- <jobId>      # Check if the crawl is done
-npm run download -- <jobId>    # Download results when complete
-npm run jobs                   # List all logged jobs
-```
 
-If the user asks to "check on" or "download" a previous crawl, run the appropriate command directly.
+## Output Expectations
 
-## Output format
+Summarize the result based on the command:
 
-After execution, present results to the user:
+- `crawl`: finished/skipped counts, output path, browser seconds when present
+- `status`: job status and current crawl counts
+- `download`: output path and record count
+- `scrape`: per-selector element counts and output path
+- `markdown`: character and line count plus output path
+- `content`, `links`, `json`, `snapshot`: concise summary plus output path
+- `pdf`, `screenshot`: byte count plus output path
+- `tomarkdown`: success or error per file plus output path for each generated markdown file
 
-**For completed crawls:**
+## Important Notes
 
-- Pages crawled count
-- Pages skipped count
-- Output file path
-- Browser seconds used (if render mode)
-
-**For scrapes:**
-
-- Element counts per selector (title, h1, h2, links, etc.)
-- Output file path
-
-**For markdown conversions:**
-
-- Character / line count of the generated markdown
-- Output file path (`.md` file)
-
-**For async (no-wait) crawls:**
-
-- Job ID
-- URL submitted
-- Commands to check status / download later
-- If multiple jobs, present as a table
-
-**For errors:**
-
-- The error message
-- Suggest checking `.env` credentials if it's an auth error
-- Suggest `--render` if the site requires JS rendering
-
-## Important notes
-
-- The `.env` file with `CF_ACCOUNT_ID` and `CF_API_TOKEN` must exist in the project root
-- Default crawl mode is fast HTML-only (free during beta). `--render` uses full browser rendering (billed at ~$0.09/browser hour)
-- Crawl results persist on Cloudflare for 14 days after job completion
-- Output files are saved to `output/` as JSON (crawl/scrape) or `.md` (markdown)
-- Scrape and markdown are always synchronous (return immediately) — no async mode needed
-- Markdown endpoint always uses full browser rendering — no `--render` flag
+- `.env` must contain `CF_ACCOUNT_ID` and `CF_API_TOKEN`
+- `crawl` is async; most other live-URL commands are synchronous
+- `crawl` results stream directly into the final output file; there is no `.partial` file
+- `tomarkdown` only accepts local files and intentionally rejects live URLs
+- Use `markdown` for live webpages, not `tomarkdown`
