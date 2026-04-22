@@ -43,6 +43,19 @@ npm run lint
 npm run lint:fix
 npm run format:check
 npm run format
+
+# Run a single test file or by name pattern
+npx vitest run test/api-client.test.ts
+npx vitest run -t "some test name"
+```
+
+## Claude Code skill
+
+This repo ships a `skill.md` that maps to a Claude Code skill. Install it with:
+
+```bash
+mkdir -p .claude/skills/cf-crawl
+cp skill.md .claude/skills/cf-crawl/SKILL.md
 ```
 
 ## Architecture
@@ -93,7 +106,8 @@ Requires `.env` with:
 - `index.ts` is the only process-exit boundary; CLI/config validation throws typed errors
 - `crawl` is the only command with a real `--render` switch; other page commands use the endpoint's native rendering behavior
 - `crawl` and `download` support `--format jsonl`
-- `scrape` supports `--wait N`
+- `scrape` supports `--wait N`; without it, `/scrape` waits for an `h1` before extracting
+- Cloudflare retains crawl results for 14 days after completion; after that `download` will fail for that `jobId`
 - `links` supports `--visible-only` and `--exclude-external`
 - `json` requires `--prompt` and optionally accepts `--schema <path>`
 - `screenshot` supports `--full-page` and `--format png|jpeg|webp`
