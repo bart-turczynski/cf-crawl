@@ -102,10 +102,15 @@ Extracts:
 ### Convert pages to markdown
 
 ```bash
-npx tsx index.ts markdown <url> [<url2> ...]
+npx tsx index.ts markdown <url> [<url2> ...] \
+  [--headers '{"Accept-Language":"en-US,en;q=0.9"}'] \
+  [--ua "<UA string>"] \
+  [--cookies '[{"name":"k","value":"v","domain":".example.com"}]']
 ```
 
 Converts live pages to clean markdown via `/markdown`. One `.md` file is written per URL.
+
+Cloudflare Browser Rendering accepts `setExtraHTTPHeaders`, `userAgent`, and `cookies` in the request body — useful when a target site geo-routes on the BR worker's egress IP (e.g. `zendesk.com` serves DE content unless you set `Accept-Language: en-US` and `Cookie: georedirect=false`). All three flags take a single JSON-encoded argument and are independent of each other.
 
 ### Fetch rendered HTML
 

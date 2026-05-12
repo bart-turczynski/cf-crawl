@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `markdown` command now accepts `--headers`, `--ua`, and `--cookies` flags so callers can forward `setExtraHTTPHeaders`, `userAgent`, and `cookies` to Cloudflare Browser Rendering's `/markdown` endpoint. Useful when the target site geo-routes on the BR worker's egress IP — e.g. `zendesk.com` returns German content from the default BR egress, but setting `Accept-Language: en-US,en;q=0.9` + `Cookie: georedirect=false` + a Chrome UA forces the canonical English content. Each flag takes a single JSON-encoded argument: `--headers '{"Accept-Language":"en-US"}'`, `--ua "<UA>"`, `--cookies '[{"name","value","domain"}]'`. Exposed via `MarkdownOptions` in `src/commands/markdown.ts` so library callers can use it directly too.
+
 ### Changed
 
 - Clarified `CLAUDE.md`: documented `src/types.ts` in the module list and narrowed the `--render` flag note to `crawl` only.

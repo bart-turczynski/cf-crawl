@@ -7,7 +7,7 @@ import { CrawlError, UsageError } from "./errors.js";
 import { normalizeUrl, runConcurrent } from "./utils.js";
 import { submitCrawl, pollCrawlJobs } from "./commands/crawl.js";
 import { scrape } from "./commands/scrape.js";
-import { markdown } from "./commands/markdown.js";
+import { markdown, type MarkdownOptions, type MarkdownCookie } from "./commands/markdown.js";
 import { status } from "./commands/status.js";
 import { download } from "./commands/download.js";
 import { listJobs } from "./commands/jobs.js";
@@ -49,7 +49,8 @@ const USAGE = {
   status: "node index.js status <jobId>",
   download: "node index.js download <jobId>",
   scrape: "node index.js scrape <url> [url2 ...] [--wait N]",
-  markdown: "node index.js markdown <url> [url2 ...]",
+  markdown:
+    'node index.js markdown <url> [url2 ...] [--headers \'{"Name":"value"}\'] [--ua "<UA>"] [--cookies \'[{"name":"k","value":"v","domain":".example.com"}]\']',
   content: "node index.js content <url> [url2 ...]",
   links: "node index.js links <url> [url2 ...] [--visible-only] [--exclude-external]",
   json: 'node index.js json <url> --prompt "..." [--schema path]',
@@ -167,7 +168,9 @@ Screenshot options:
   --format F             png | jpeg | webp (default: png)
 
 Markdown options:
-  (no flags -- endpoint always uses full browser rendering)
+  --headers JSON   JSON object of extra request headers (e.g. '{"Accept-Language":"en-US"}')
+  --ua STRING      Override the default browser User-Agent string
+  --cookies JSON   JSON array of cookies, each {"name","value","domain"}
 
 Examples:
   node index.js crawl example.com
@@ -258,6 +261,54 @@ function getCrawlOptions(flags: Flags): { render: boolean; options: CrawlOptions
 function getScrapeOptions(flags: Flags): ScrapeOptions {
   const wait = getNumberFlag(flags, "wait", "--wait must be a non-negative integer");
   return wait != null ? { wait } : {};
+}
+
+function parseJsonFlag<T>(raw: unknown, flagName: string, validator: (v: unknown) => v is T): T {
+  if (typeof raw !== "string") {
+    failUsage(`--${flagName} must be a JSON string`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    failUsage(`--${flagName} is not valid JSON: ${(err as Error).message}`);
+  }
+  if (!validator(parsed)) {
+    failUsage(`--${flagName} has wrong shape`);
+  }
+  return parsed;
+}
+
+function isHeaderRecord(v: unknown): v is Record<string, string> {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  return Object.values(v as Record<string, unknown>).every((x) => typeof x === "string");
+}
+
+function isCookieArray(v: unknown): v is MarkdownCookie[] {
+  if (!Array.isArray(v)) return false;
+  return v.every(
+    (c) =>
+      typeof c === "object" &&
+      c !== null &&
+      typeof (c as MarkdownCookie).name === "string" &&
+      typeof (c as MarkdownCookie).value === "string" &&
+      typeof (c as MarkdownCookie).domain === "string",
+  );
+}
+
+function getMarkdownOptions(flags: Flags): MarkdownOptions {
+  const options: MarkdownOptions = {};
+  if (flags.headers != null) {
+    options.headers = parseJsonFlag(flags.headers, "headers", isHeaderRecord);
+  }
+  if (flags.ua != null) {
+    if (typeof flags.ua !== "string") failUsage("--ua must be a string");
+    options.userAgent = flags.ua;
+  }
+  if (flags.cookies != null) {
+    options.cookies = parseJsonFlag(flags.cookies, "cookies", isCookieArray);
+  }
+  return options;
 }
 
 function getLinksOptions(flags: Flags): LinksOptions {
@@ -404,8 +455,10 @@ const COMMANDS: Record<string, CommandSpec> = {
     },
   },
   markdown: {
-    async run({ positionals }): Promise<void> {
-      await runUrlCommand(requireUrls(positionals, USAGE.markdown), markdown);
+    async run({ flags, positionals }): Promise<void> {
+      const urls = requireUrls(positionals, USAGE.markdown);
+      const options = getMarkdownOptions(flags);
+      await runUrlCommand(urls, async (url) => markdown(url, options));
     },
   },
   content: {

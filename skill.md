@@ -33,6 +33,8 @@ Pick the command that matches the user's intent:
 
 Pick `markdown` when the user wants **clean readable content** ("get the article text", "save these pages as markdown", "scrape output is too messy"). Pick `scrape` when the user wants **structured element counts / specific selectors**. Pick `content` when the user needs **raw rendered HTML**.
 
+`markdown` accepts `--headers '{"Name":"value"}'`, `--ua "<UA>"`, and `--cookies '[{"name","value","domain"}]'` (each a single JSON-encoded arg). Use these when a target site geo-routes on Cloudflare Browser Rendering's egress IP and you need to force a locale, impersonate a real browser UA, or set a bypass cookie. Example: `zendesk.com` returns German content from the default BR egress but English when you pass `Accept-Language: en-US` + `Cookie: georedirect=false`.
+
 `tomarkdown` accepts local files only and rejects live `http(s)` URLs. For live webpages, use `markdown`.
 
 ## Important Flags
@@ -79,6 +81,7 @@ npm run crawl -- https://example.com --limit 100
 npm run crawl -- https://example.com --no-wait
 npm run scrape -- https://example.com/page --wait 3000
 npm run markdown -- https://example.com/article
+npm run markdown -- https://www.zendesk.com/pricing/ --headers '{"Accept-Language":"en-US,en;q=0.9"}' --cookies '[{"name":"georedirect","value":"false","domain":".zendesk.com"}]'
 npm run content -- https://example.com
 npm run links -- https://example.com --visible-only --exclude-external
 npm run json -- https://example.com --prompt "Extract title and main CTA"
