@@ -176,6 +176,36 @@ npx tsx index.ts snapshot <url> [<url2> ...]
 
 Calls `/snapshot` and saves the JSON response containing rendered HTML plus a base64 screenshot.
 
+### Throttling batches (`--concurrency`)
+
+All URL-taking commands accept `--concurrency N` to cap how many requests are in flight at once. Default is `10` — matching the Workers Paid quick-action limit (10 rps, 120 concurrent browsers).
+
+| Plan         | Cloudflare quick-action limit                                           | Suggested `--concurrency`                                     |
+| ------------ | ----------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Workers Free | 1 request per 10 s (0.1 rps), 3 concurrent browsers, 10 browser-min/day | `1`                                                           |
+| Workers Paid | 10 rps, 120 concurrent browsers, unlimited browser time                 | `10` (default), or higher if your account has elevated quotas |
+
+Exceeding the per-second cap returns a `429` — `cf-crawl` already retries with `Retry-After`, but flooding the limit wastes wall clock. Pick `--concurrency` to match your actual headroom.
+
+### Read URLs from a file (`--input`)
+
+All URL-taking commands accept `--input <file>` to read URLs from a text file instead of (or in addition to) positional arguments. File extension does not matter — `.csv`, `.tsv`, `.txt`, or anything else works as long as URLs sit on their own lines.
+
+```bash
+npx tsx index.ts markdown --input urls.csv
+npx tsx index.ts scrape https://extra.com --input urls.txt   # combined
+npx tsx index.ts pdf --input ./gsc-export.csv
+```
+
+Parsing rules:
+
+- One URL per line; the first URL-like token on each line is taken, so CSVs/TSVs with a header row or extra columns work without preprocessing.
+- Blank lines and lines starting with `#` are skipped.
+- A leading UTF-8 BOM is stripped.
+- Lines without any URL-looking token (e.g. CSV headers like `URL,Title,Status`) are skipped silently.
+- Positional URLs are processed first, then file URLs.
+- `tomarkdown` does not accept `--input` — it takes local file paths, not URLs.
+
 ### Convert local files to markdown
 
 ```bash

@@ -91,6 +91,68 @@ describe("runConcurrent", () => {
     await expect(runConcurrent([1, 2], handler)).rejects.toThrow("All 2 operation(s) failed");
   });
 
+  it("caps in-flight handlers at the concurrency limit", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    let inFlight = 0;
+    let maxInFlight = 0;
+
+    const handler = async (item: number): Promise<number> => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 5));
+      inFlight--;
+      return item;
+    };
+
+    const items = Array.from({ length: 20 }, (_, i) => i);
+    const { successes, failures } = await runConcurrent(items, handler, { concurrency: 3 });
+
+    expect(successes).toHaveLength(20);
+    expect(failures).toHaveLength(0);
+    expect(maxInFlight).toBeLessThanOrEqual(3);
+    expect(maxInFlight).toBeGreaterThan(1);
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it("runs handlers serially when concurrency is 1", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    let inFlight = 0;
+    let maxInFlight = 0;
+
+    const handler = async (item: number): Promise<number> => {
+      inFlight++;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 2));
+      inFlight--;
+      return item;
+    };
+
+    await runConcurrent([1, 2, 3, 4, 5], handler, { concurrency: 1 });
+    expect(maxInFlight).toBe(1);
+
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  it("preserves result order when running with concurrency cap", async () => {
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const handler = async (item: number): Promise<number> => {
+      // Faster for higher numbers so completion order differs from input order
+      await new Promise((r) => setTimeout(r, 10 - item));
+      return item * 10;
+    };
+
+    const { successes } = await runConcurrent([1, 2, 3, 4, 5], handler, { concurrency: 5 });
+    expect(successes.map((s) => s.item)).toEqual([1, 2, 3, 4, 5]);
+    expect(successes.map((s) => s.value)).toEqual([10, 20, 30, 40, 50]);
+
+    logSpy.mockRestore();
+  });
+
   it("prints summary for multiple items", async () => {
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});

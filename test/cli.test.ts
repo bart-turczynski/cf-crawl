@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ConfigError } from "../src/errors.js";
 
 vi.mock("../src/config.js", () => ({
@@ -207,7 +210,7 @@ describe("cli", () => {
 
       await main();
 
-      expect(markdown).toHaveBeenCalledWith("https://example.com/");
+      expect(markdown).toHaveBeenCalledWith("https://example.com/", expect.any(Object));
     });
 
     it("calls markdown for each URL when multiple are provided", async () => {
@@ -344,6 +347,89 @@ describe("cli", () => {
       process.argv = ["node", "index.js", "tomarkdown"];
       const { main } = await import("../src/cli.js");
       await expect(main()).rejects.toThrow(/at least one file path is required/);
+    });
+  });
+
+  describe("--input flag", () => {
+    let inputDir: string;
+
+    beforeEach(async () => {
+      inputDir = await mkdtemp(join(tmpdir(), "cf-crawl-cli-input-"));
+    });
+
+    afterEach(async () => {
+      await rm(inputDir, { recursive: true, force: true });
+    });
+
+    async function writeInput(name: string, contents: string): Promise<string> {
+      const path = join(inputDir, name);
+      await writeFile(path, contents, "utf8");
+      return path;
+    }
+
+    it("reads URLs from a CSV with a header and dispatches once per URL", async () => {
+      const { markdown } = (await import("../src/commands/markdown.js")) as { markdown: Mock };
+      markdown.mockResolvedValue(undefined);
+      const path = await writeInput(
+        "urls.csv",
+        "URL,Title\nhttps://example.com,Home\nhttps://example.org,About\n",
+      );
+
+      process.argv = ["node", "index.js", "markdown", "--input", path];
+      const { main } = await import("../src/cli.js");
+      await main();
+
+      expect(markdown.mock.calls.map((c) => c[0])).toEqual([
+        "https://example.com/",
+        "https://example.org/",
+      ]);
+    });
+
+    it("combines positional URLs with --input file URLs (positionals first)", async () => {
+      const { scrape } = (await import("../src/commands/scrape.js")) as { scrape: Mock };
+      scrape.mockResolvedValue(undefined);
+      const path = await writeInput("more.txt", "https://from-file.com\n");
+
+      process.argv = ["node", "index.js", "scrape", "https://from-arg.com", "--input", path];
+      const { main } = await import("../src/cli.js");
+      await main();
+
+      expect(scrape.mock.calls.map((c) => c[0])).toEqual([
+        "https://from-arg.com/",
+        "https://from-file.com/",
+      ]);
+    });
+
+    it("fails with a usage error when --input file has no URLs", async () => {
+      const path = await writeInput("headers-only.csv", "URL,Title,Status\n");
+      process.argv = ["node", "index.js", "content", "--input", path];
+      const { main } = await import("../src/cli.js");
+      await expect(main()).rejects.toThrow(/contained no URLs/);
+    });
+
+    it("rejects --concurrency 0 with a usage error", async () => {
+      process.argv = ["node", "index.js", "markdown", "https://example.com", "--concurrency", "0"];
+      const { main } = await import("../src/cli.js");
+      await expect(main()).rejects.toThrow(/--concurrency must be a positive integer/);
+    });
+
+    it("rejects non-numeric --concurrency with a usage error", async () => {
+      process.argv = [
+        "node",
+        "index.js",
+        "markdown",
+        "https://example.com",
+        "--concurrency",
+        "abc",
+      ];
+      const { main } = await import("../src/cli.js");
+      await expect(main()).rejects.toThrow(/--concurrency must be a positive integer/);
+    });
+
+    it("fails with a usage error when --input file is missing", async () => {
+      process.argv = ["node", "index.js", "snapshot", "--input", join(inputDir, "missing.txt")];
+      const { main } = await import("../src/cli.js");
+      await expect(main()).rejects.toThrow(/Failed to read --input file/);
     });
   });
 });

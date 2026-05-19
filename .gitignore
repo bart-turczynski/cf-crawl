@@ -7,3 +7,6 @@ dist/
 .claude/
 
 .DS_Store
+
+# Fiberplane local issue tracking
+.fp/

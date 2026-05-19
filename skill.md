@@ -39,20 +39,22 @@ Pick `markdown` when the user wants **clean readable content** ("get the article
 
 ## Important Flags
 
-| Flag                                | Applies to          | Meaning                                              |
-| ----------------------------------- | ------------------- | ---------------------------------------------------- |
-| `--render`                          | `crawl` only        | Full browser rendering instead of fast HTML mode     |
-| `--limit N`                         | `crawl`             | Max pages to crawl                                   |
-| `--max_depth N`                     | `crawl`             | Max link depth                                       |
-| `--no-wait`                         | `crawl`             | Submit job and exit without polling                  |
-| `--format json` \| `--format jsonl` | `crawl`, `download` | Output format for crawl results                      |
-| `--wait N`                          | `scrape`            | Delay (ms) before extraction; default waits for `h1` |
-| `--visible-only`                    | `links`             | Keep only visible links                              |
-| `--exclude-external`                | `links`             | Exclude off-domain links                             |
-| `--prompt "..."`                    | `json`              | Required extraction instruction                      |
-| `--schema <path>`                   | `json`              | Optional JSON schema file                            |
-| `--full-page`                       | `screenshot`        | Capture the full scrollable page                     |
-| `--format png` \| `jpeg` \| `webp`  | `screenshot`        | Screenshot image format (default `png`)              |
+| Flag                                | Applies to          | Meaning                                                                                                                                                                |
+| ----------------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--render`                          | `crawl` only        | Full browser rendering instead of fast HTML mode                                                                                                                       |
+| `--limit N`                         | `crawl`             | Max pages to crawl                                                                                                                                                     |
+| `--max_depth N`                     | `crawl`             | Max link depth                                                                                                                                                         |
+| `--no-wait`                         | `crawl`             | Submit job and exit without polling                                                                                                                                    |
+| `--format json` \| `--format jsonl` | `crawl`, `download` | Output format for crawl results                                                                                                                                        |
+| `--wait N`                          | `scrape`            | Delay (ms) before extraction; default waits for `h1`                                                                                                                   |
+| `--visible-only`                    | `links`             | Keep only visible links                                                                                                                                                |
+| `--exclude-external`                | `links`             | Exclude off-domain links                                                                                                                                               |
+| `--prompt "..."`                    | `json`              | Required extraction instruction                                                                                                                                        |
+| `--schema <path>`                   | `json`              | Optional JSON schema file                                                                                                                                              |
+| `--full-page`                       | `screenshot`        | Capture the full scrollable page                                                                                                                                       |
+| `--format png` \| `jpeg` \| `webp`  | `screenshot`        | Screenshot image format (default `png`)                                                                                                                                |
+| `--input <file>`                    | all URL commands    | Read URLs from a text file (csv/tsv/txt; one per line, first URL-like token wins, `#` comments + headers skipped). Combine with positional URLs. Not for `tomarkdown`. |
+| `--concurrency N`                   | all URL commands    | Max in-flight requests (default 10). Use `1` on Workers Free (0.1 rps cap); 10 matches Paid (10 rps). Necessary throttle for large `--input` batches.                  |
 
 ## Crawl Size Tiers
 

@@ -41,13 +41,41 @@ export function normalizeUrl(input: string): string {
 /**
  * Run a handler concurrently for multiple items, then print a summary.
  * Returns { successes, failures } arrays.
+ *
+ * `concurrency` caps the number of handlers in flight at once. When unset
+ * (or >= items.length), all handlers run in parallel via `Promise.allSettled`.
  */
 export async function runConcurrent<T, V>(
   items: T[],
   handler: (item: T) => Promise<V>,
-  { labelFn = String }: { labelFn?: (item: T) => string } = {},
+  { labelFn = String, concurrency }: { labelFn?: (item: T) => string; concurrency?: number } = {},
 ): Promise<ConcurrentResult<T, V>> {
-  const results = await Promise.allSettled(items.map((item) => handler(item)));
+  type Settled = PromiseSettledResult<V>;
+  let results: Settled[];
+
+  const cap =
+    concurrency != null && concurrency > 0 && concurrency < items.length
+      ? concurrency
+      : items.length;
+
+  if (cap >= items.length) {
+    results = await Promise.allSettled(items.map((item) => handler(item)));
+  } else {
+    results = new Array(items.length);
+    let nextIndex = 0;
+    const worker = async (): Promise<void> => {
+      while (true) {
+        const i = nextIndex++;
+        if (i >= items.length) return;
+        try {
+          results[i] = { status: "fulfilled", value: await handler(items[i]) };
+        } catch (reason) {
+          results[i] = { status: "rejected", reason };
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: cap }, () => worker()));
+  }
 
   const successes: Array<{ item: T; value: V }> = [];
   const failures: Array<{ item: T; error: string }> = [];

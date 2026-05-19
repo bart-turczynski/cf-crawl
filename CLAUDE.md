@@ -16,16 +16,18 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm install
 
 # Dev (runs TypeScript directly via tsx)
-npm run crawl -- <url> [<url2> ...] [--render] [--limit N] [--max_depth N] [--no-wait] [--format json|jsonl]
+# All page commands also accept --input <file> to read URLs from a text file
+# (csv/tsv/txt, one URL per line; first URL-like token wins). tomarkdown does not.
+npm run crawl -- <url> [<url2> ...] [--render] [--limit N] [--max_depth N] [--no-wait] [--format json|jsonl] [--input <file>]
 npm run crawl:render -- <url> [<url2> ...]
-npm run scrape -- <url> [<url2> ...] [--wait N]
-npm run markdown -- <url> [<url2> ...]
-npm run content -- <url> [<url2> ...]
-npm run links -- <url> [<url2> ...] [--visible-only] [--exclude-external]
-npm run json -- <url> [<url2> ...] --prompt "..." [--schema ./schema.json]
-npm run pdf -- <url> [<url2> ...]
-npm run screenshot -- <url> [<url2> ...] [--full-page] [--format png|jpeg|webp]
-npm run snapshot -- <url> [<url2> ...]
+npm run scrape -- <url> [<url2> ...] [--wait N] [--input <file>]
+npm run markdown -- <url> [<url2> ...] [--input <file>]
+npm run content -- <url> [<url2> ...] [--input <file>]
+npm run links -- <url> [<url2> ...] [--visible-only] [--exclude-external] [--input <file>]
+npm run json -- <url> [<url2> ...] --prompt "..." [--schema ./schema.json] [--input <file>]
+npm run pdf -- <url> [<url2> ...] [--input <file>]
+npm run screenshot -- <url> [<url2> ...] [--full-page] [--format png|jpeg|webp] [--input <file>]
+npm run snapshot -- <url> [<url2> ...] [--input <file>]
 npm run tomarkdown -- <file> [<file2> ...]
 npm run status -- <jobId>
 npm run download -- <jobId> [--format json|jsonl]
@@ -70,6 +72,7 @@ Main modules:
 - **`src/config.ts`** — env-backed config helpers, retry/poll defaults, status sets
 - **`src/errors.ts`** — `UsageError`, `ConfigError`, `CrawlError`, `ApiError`
 - **`src/utils.ts`** — `sleep`, `backoffDelay`, `timestamp`, `normalizeUrl`, `urlSlug`, `runConcurrent`
+- **`src/input.ts`** — `readUrlsFromFile` for the `--input <file>` flag. Format-agnostic line-oriented parser: first URL-like token per line wins, comments (`#`) and blank lines skipped, BOM stripped.
 - **`src/output.ts`** — `saveJson`, `saveText`, `saveBinary`, output dir creation, and crawl-specific streaming writers
 - **`src/job-log.ts`** — append-only JSONL crawl-job events with fold-on-read reconstruction
 - **`src/types.ts`** — shared types for CLI flags, API responses, job entries, and writer contracts
@@ -112,6 +115,8 @@ Requires `.env` with:
 - `json` requires `--prompt` and optionally accepts `--schema <path>`
 - `screenshot` supports `--full-page` and `--format png|jpeg|webp`
 - `tomarkdown` accepts local files only and rejects `http(s)` arguments intentionally
+- `--input <file>` reads URLs from a text file for any URL-taking command. Extension is ignored; per line, the first URL-looking token is taken, so CSVs/TSVs with header rows or extra columns work as-is. Lines starting with `#` and blank lines are skipped. File URLs are appended after any positional URLs.
+- `--concurrency N` caps in-flight requests across all URL-taking commands. Default is `10`, matching the Workers Paid quick-action limit (10 rps; 120 concurrent browsers). On Workers Free use `--concurrency 1` — the per-account limit is 0.1 rps. Implemented as a worker pool in `runConcurrent`; when `N >= items.length` the original `Promise.allSettled` fan-out is used.
 - Large crawl downloads stream directly into the final output file during pagination; there is no `.partial` file model
 - `src/cli.ts` uses a per-run execution context so SIGINT listeners are removed in `finally`
 - Job logging is append-only JSONL; reads fold the latest state per `jobId`

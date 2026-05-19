@@ -4,6 +4,7 @@
 
 import { validateEnv } from "./config.js";
 import { CrawlError, UsageError } from "./errors.js";
+import { readUrlsFromFile } from "./input.js";
 import { normalizeUrl, runConcurrent } from "./utils.js";
 import { submitCrawl, pollCrawlJobs } from "./commands/crawl.js";
 import { scrape } from "./commands/scrape.js";
@@ -44,19 +45,22 @@ interface CommandSpec {
 const OUTPUT_FORMATS = new Set<OutputFormat>(["json", "jsonl"]);
 const SCREENSHOT_FORMATS = new Set<ScreenshotFormat>(["png", "jpeg", "webp"]);
 
+const URL_INPUT_HINT = "[--input <file>]";
+const CONCURRENCY_HINT = "[--concurrency N]";
+const DEFAULT_CONCURRENCY = 10;
+
 const USAGE = {
-  crawl: "node index.js crawl <url> [url2 ...] [--render] [--limit N] [--no-wait]",
+  crawl: `node index.js crawl <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--render] [--limit N] [--no-wait]`,
   status: "node index.js status <jobId>",
   download: "node index.js download <jobId>",
-  scrape: "node index.js scrape <url> [url2 ...] [--wait N]",
-  markdown:
-    'node index.js markdown <url> [url2 ...] [--headers \'{"Name":"value"}\'] [--ua "<UA>"] [--cookies \'[{"name":"k","value":"v","domain":".example.com"}]\']',
-  content: "node index.js content <url> [url2 ...]",
-  links: "node index.js links <url> [url2 ...] [--visible-only] [--exclude-external]",
-  json: 'node index.js json <url> --prompt "..." [--schema path]',
-  pdf: "node index.js pdf <url> [url2 ...]",
-  screenshot: "node index.js screenshot <url> [url2 ...] [--full-page] [--format png|jpeg|webp]",
-  snapshot: "node index.js snapshot <url> [url2 ...]",
+  scrape: `node index.js scrape <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--wait N]`,
+  markdown: `node index.js markdown <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--headers '{"Name":"value"}'] [--ua "<UA>"] [--cookies '[{"name":"k","value":"v","domain":".example.com"}]']`,
+  content: `node index.js content <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT}`,
+  links: `node index.js links <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--visible-only] [--exclude-external]`,
+  json: `node index.js json <url> ${URL_INPUT_HINT} ${CONCURRENCY_HINT} --prompt "..." [--schema path]`,
+  pdf: `node index.js pdf <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT}`,
+  screenshot: `node index.js screenshot <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--full-page] [--format png|jpeg|webp]`,
+  snapshot: `node index.js snapshot <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT}`,
   tomarkdown: "node index.js tomarkdown <file> [file2 ...]",
 } as const;
 
@@ -109,7 +113,7 @@ function parseArgs(argv: string[]): ParsedArgs {
       flags.help = true;
     } else if (args[i].startsWith("--")) {
       const key = args[i].slice(2);
-      const numericFlags = new Set(["limit", "max_depth", "wait"]);
+      const numericFlags = new Set(["limit", "max_depth", "wait", "concurrency"]);
       const next = args[i + 1];
       if (next && !next.startsWith("--")) {
         flags[key] = numericFlags.has(key) && /^\d+$/.test(next) ? Number(next) : next;
@@ -172,6 +176,16 @@ Markdown options:
   --ua STRING      Override the default browser User-Agent string
   --cookies JSON   JSON array of cookies, each {"name","value","domain"}
 
+Input file (all page commands):
+  --input <file>   Read URLs from a text file (one per line; csv/tsv/txt all OK).
+                   The first URL-like token on each line is taken; lines without one
+                   (e.g. CSV headers) and lines starting with "#" are skipped.
+                   Combine with positional URLs to extend the list.
+
+Concurrency (all page commands):
+  --concurrency N  Max URLs in flight at once (default 10). Cloudflare's quick-action
+                   limit is 10 rps on Workers Paid and 0.1 rps on Free; tune accordingly.
+
 Examples:
   node index.js crawl example.com
   node index.js crawl site1.com site2.com --render --limit 100
@@ -197,11 +211,26 @@ function validateUrls(urls: string[]): string[] {
   return urls.map((url) => normalizeUrl(url));
 }
 
-function requireUrls(positionals: string[], usage: string): string[] {
-  if (positionals.length === 0) {
-    failUsage("URL is required.", usage);
+async function readInputFlag(flags: Flags, usage: string): Promise<string[]> {
+  const input = flags.input;
+  if (input == null) return [];
+  if (typeof input !== "string" || input.length === 0) {
+    failUsage("--input requires a file path.", usage);
   }
-  return validateUrls(positionals);
+  const urls = await readUrlsFromFile(input);
+  if (urls.length === 0) {
+    failUsage(`--input file "${input}" contained no URLs.`, usage);
+  }
+  return urls;
+}
+
+async function resolveUrls(positionals: string[], flags: Flags, usage: string): Promise<string[]> {
+  const fromFile = await readInputFlag(flags, usage);
+  const combined = [...positionals, ...fromFile];
+  if (combined.length === 0) {
+    failUsage("URL is required (provide as args or via --input <file>).", usage);
+  }
+  return validateUrls(combined);
 }
 
 function requireJobId(positionals: string[], usage: string): string {
@@ -231,6 +260,13 @@ function getNumberFlag(
     failUsage(errorMessage);
   }
   return value;
+}
+
+function getConcurrency(flags: Flags): number {
+  const value = getNumberFlag(flags, "concurrency", "--concurrency must be a positive integer", {
+    min: 1,
+  });
+  return value ?? DEFAULT_CONCURRENCY;
 }
 
 function getOutputFormat(flags: Flags): OutputFormat | undefined {
@@ -339,21 +375,23 @@ function getScreenshotOptions(flags: Flags): ScreenshotOptions {
 async function runUrlCommand(
   urls: string[],
   handler: (url: string) => Promise<unknown>,
+  { concurrency }: { concurrency?: number } = {},
 ): Promise<void> {
   if (urls.length === 1) {
     await handler(urls[0]);
     return;
   }
 
-  await runConcurrent(urls, handler, { labelFn: String });
+  await runConcurrent(urls, handler, { labelFn: String, concurrency });
 }
 
 async function runCrawlCommand(
   { flags, positionals }: ParsedArgs,
   context: ExecutionContext,
 ): Promise<void> {
-  const urls = requireUrls(positionals, USAGE.crawl);
+  const urls = await resolveUrls(positionals, flags, USAGE.crawl);
   const { render, options } = getCrawlOptions(flags);
+  const concurrency = getConcurrency(flags);
   const format = options.format;
 
   if (urls.length === 1) {
@@ -385,7 +423,7 @@ async function runCrawlCommand(
       context.trackJob(result.jobId);
       return result;
     },
-    { labelFn: String },
+    { labelFn: String, concurrency },
   );
 
   if (submitted.length === 0) {
@@ -449,33 +487,38 @@ const COMMANDS: Record<string, CommandSpec> = {
   },
   scrape: {
     async run({ flags, positionals }): Promise<void> {
-      const urls = requireUrls(positionals, USAGE.scrape);
+      const urls = await resolveUrls(positionals, flags, USAGE.scrape);
       const options = getScrapeOptions(flags);
-      await runUrlCommand(urls, async (url) => scrape(url, options));
+      const concurrency = getConcurrency(flags);
+      await runUrlCommand(urls, async (url) => scrape(url, options), { concurrency });
     },
   },
   markdown: {
     async run({ flags, positionals }): Promise<void> {
-      const urls = requireUrls(positionals, USAGE.markdown);
+      const urls = await resolveUrls(positionals, flags, USAGE.markdown);
       const options = getMarkdownOptions(flags);
-      await runUrlCommand(urls, async (url) => markdown(url, options));
+      const concurrency = getConcurrency(flags);
+      await runUrlCommand(urls, async (url) => markdown(url, options), { concurrency });
     },
   },
   content: {
-    async run({ positionals }): Promise<void> {
-      await runUrlCommand(requireUrls(positionals, USAGE.content), content);
+    async run({ flags, positionals }): Promise<void> {
+      const urls = await resolveUrls(positionals, flags, USAGE.content);
+      const concurrency = getConcurrency(flags);
+      await runUrlCommand(urls, content, { concurrency });
     },
   },
   links: {
     async run({ flags, positionals }): Promise<void> {
-      const urls = requireUrls(positionals, USAGE.links);
+      const urls = await resolveUrls(positionals, flags, USAGE.links);
       const options = getLinksOptions(flags);
-      await runUrlCommand(urls, async (url) => links(url, options));
+      const concurrency = getConcurrency(flags);
+      await runUrlCommand(urls, async (url) => links(url, options), { concurrency });
     },
   },
   json: {
     async run({ flags, positionals }): Promise<void> {
-      const urls = requireUrls(positionals, USAGE.json);
+      const urls = await resolveUrls(positionals, flags, USAGE.json);
       if (typeof flags.prompt !== "string" || flags.prompt.trim().length === 0) {
         failUsage('--prompt "<text>" is required for `json`.');
       }
@@ -484,25 +527,31 @@ const COMMANDS: Record<string, CommandSpec> = {
         prompt: flags.prompt,
         schemaPath: typeof flags.schema === "string" ? flags.schema : undefined,
       };
+      const concurrency = getConcurrency(flags);
 
-      await runUrlCommand(urls, async (url) => jsonExtract(url, options));
+      await runUrlCommand(urls, async (url) => jsonExtract(url, options), { concurrency });
     },
   },
   pdf: {
-    async run({ positionals }): Promise<void> {
-      await runUrlCommand(requireUrls(positionals, USAGE.pdf), pdf);
+    async run({ flags, positionals }): Promise<void> {
+      const urls = await resolveUrls(positionals, flags, USAGE.pdf);
+      const concurrency = getConcurrency(flags);
+      await runUrlCommand(urls, pdf, { concurrency });
     },
   },
   screenshot: {
     async run({ flags, positionals }): Promise<void> {
-      const urls = requireUrls(positionals, USAGE.screenshot);
+      const urls = await resolveUrls(positionals, flags, USAGE.screenshot);
       const options = getScreenshotOptions(flags);
-      await runUrlCommand(urls, async (url) => screenshot(url, options));
+      const concurrency = getConcurrency(flags);
+      await runUrlCommand(urls, async (url) => screenshot(url, options), { concurrency });
     },
   },
   snapshot: {
-    async run({ positionals }): Promise<void> {
-      await runUrlCommand(requireUrls(positionals, USAGE.snapshot), snapshot);
+    async run({ flags, positionals }): Promise<void> {
+      const urls = await resolveUrls(positionals, flags, USAGE.snapshot);
+      const concurrency = getConcurrency(flags);
+      await runUrlCommand(urls, snapshot, { concurrency });
     },
   },
   tomarkdown: {
