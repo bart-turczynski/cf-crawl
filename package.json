@@ -1,5 +1,6 @@
 {
   "name": "cf-crawl",
+  "packageManager": "pnpm@11.1.1",
   "version": "1.0.0",
   "description": "Crawl and scrape websites using the Cloudflare Browser Rendering API",
   "type": "module",
@@ -45,5 +46,13 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.57.2",
     "vitest": "^4.1.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "unrs-resolver",
+      "workerd"
+    ]
   }
 }
