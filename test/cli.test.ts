@@ -191,6 +191,106 @@ describe("cli", () => {
 
       expect(scrape).toHaveBeenCalledWith("https://example.com/", expect.any(Object));
     });
+
+    it("passes repeated --selector flags as a selectors array", async () => {
+      const { scrape } = (await import("../src/commands/scrape.js")) as { scrape: Mock };
+      scrape.mockResolvedValue(undefined);
+
+      process.argv = [
+        "node",
+        "index.js",
+        "scrape",
+        "https://example.com",
+        "--selector",
+        ".price",
+        "--selector",
+        "h1",
+      ];
+      const { main } = await import("../src/cli.js");
+
+      await main();
+
+      expect(scrape).toHaveBeenCalledWith("https://example.com/", {
+        selectors: [{ selector: ".price" }, { selector: "h1" }],
+      });
+    });
+
+    it("forwards --headers, --ua, and --cookies alongside selectors", async () => {
+      const { scrape } = (await import("../src/commands/scrape.js")) as { scrape: Mock };
+      scrape.mockResolvedValue(undefined);
+
+      process.argv = [
+        "node",
+        "index.js",
+        "scrape",
+        "https://example.com",
+        "--selector",
+        ".price",
+        "--headers",
+        '{"Accept-Language":"en-US"}',
+        "--ua",
+        "MyBot/1.0",
+        "--cookies",
+        '[{"name":"georedirect","value":"false","domain":".example.com"}]',
+      ];
+      const { main } = await import("../src/cli.js");
+
+      await main();
+
+      expect(scrape).toHaveBeenCalledWith("https://example.com/", {
+        selectors: [{ selector: ".price" }],
+        headers: { "Accept-Language": "en-US" },
+        userAgent: "MyBot/1.0",
+        cookies: [{ name: "georedirect", value: "false", domain: ".example.com" }],
+      });
+    });
+
+    it("rejects an empty --selector value", async () => {
+      process.argv = ["node", "index.js", "scrape", "https://example.com", "--selector"];
+      const { main } = await import("../src/cli.js");
+
+      await expect(main()).rejects.toThrow(/--selector/);
+    });
+
+    it("passes --wait-until, --wait-for, and --strict", async () => {
+      const { scrape } = (await import("../src/commands/scrape.js")) as { scrape: Mock };
+      scrape.mockResolvedValue(undefined);
+
+      process.argv = [
+        "node",
+        "index.js",
+        "scrape",
+        "https://example.com",
+        "--wait-until",
+        "networkidle2",
+        "--wait-for",
+        ".product-grid",
+        "--strict",
+      ];
+      const { main } = await import("../src/cli.js");
+
+      await main();
+
+      expect(scrape).toHaveBeenCalledWith("https://example.com/", {
+        waitUntil: "networkidle2",
+        waitFor: ".product-grid",
+        strict: true,
+      });
+    });
+
+    it("rejects an unsupported --wait-until value", async () => {
+      process.argv = [
+        "node",
+        "index.js",
+        "scrape",
+        "https://example.com",
+        "--wait-until",
+        "whenever",
+      ];
+      const { main } = await import("../src/cli.js");
+
+      await expect(main()).rejects.toThrow(/--wait-until must be one of/);
+    });
   });
 
   describe("markdown", () => {

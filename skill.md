@@ -15,25 +15,25 @@ URLs may be passed without `https://`; the CLI normalizes them internally.
 
 Pick the command that matches the user's intent:
 
-| Intent                                                  | Command      |
-| ------------------------------------------------------- | ------------ |
-| Site-wide crawl, discover many pages, async job         | `crawl`      |
-| Extract structured page content from built-in selectors | `scrape`     |
-| Save readable page content as markdown                  | `markdown`   |
-| Fetch rendered HTML                                     | `content`    |
-| Extract hyperlinks                                      | `links`      |
-| Prompt-driven structured extraction                     | `json`       |
-| Render a PDF                                            | `pdf`        |
-| Capture a screenshot                                    | `screenshot` |
-| Capture HTML plus screenshot metadata                   | `snapshot`   |
-| Convert local files to markdown                         | `tomarkdown` |
-| Check crawl progress                                    | `status`     |
-| Download crawl results                                  | `download`   |
-| List locally tracked crawl jobs                         | `jobs`       |
+| Intent                                                                               | Command      |
+| ------------------------------------------------------------------------------------ | ------------ |
+| Site-wide crawl, discover many pages, async job                                      | `crawl`      |
+| Extract structured page content by CSS selector (`--selector`, or built-in defaults) | `scrape`     |
+| Save readable page content as markdown                                               | `markdown`   |
+| Fetch rendered HTML                                                                  | `content`    |
+| Extract hyperlinks                                                                   | `links`      |
+| Prompt-driven structured extraction                                                  | `json`       |
+| Render a PDF                                                                         | `pdf`        |
+| Capture a screenshot                                                                 | `screenshot` |
+| Capture HTML plus screenshot metadata                                                | `snapshot`   |
+| Convert local files to markdown                                                      | `tomarkdown` |
+| Check crawl progress                                                                 | `status`     |
+| Download crawl results                                                               | `download`   |
+| List locally tracked crawl jobs                                                      | `jobs`       |
 
 Pick `markdown` when the user wants **clean readable content** ("get the article text", "save these pages as markdown", "scrape output is too messy"). Pick `scrape` when the user wants **structured element counts / specific selectors**. Pick `content` when the user needs **raw rendered HTML**.
 
-`markdown` accepts `--headers '{"Name":"value"}'`, `--ua "<UA>"`, and `--cookies '[{"name","value","domain"}]'` (each a single JSON-encoded arg). Use these when a target site geo-routes on Cloudflare Browser Rendering's egress IP and you need to force a locale, impersonate a real browser UA, or set a bypass cookie. Example: `zendesk.com` returns German content from the default BR egress but English when you pass `Accept-Language: en-US` + `Cookie: georedirect=false`.
+`markdown` and `scrape` accept `--headers '{"Name":"value"}'`, `--ua "<UA>"`, and `--cookies '[{"name","value","domain"}]'` (each a single JSON-encoded arg). Use these when a target site geo-routes on Cloudflare Browser Rendering's egress IP and you need to force a locale, impersonate a real browser UA, or set a bypass cookie. Example: `zendesk.com` returns German content from the default BR egress but English when you pass `Accept-Language: en-US` + `Cookie: georedirect=false`.
 
 `tomarkdown` accepts local files only and rejects live `http(s)` URLs. For live webpages, use `markdown`.
 
@@ -46,7 +46,11 @@ Pick `markdown` when the user wants **clean readable content** ("get the article
 | `--max_depth N`                     | `crawl`             | Max link depth                                                                                                                                                         |
 | `--no-wait`                         | `crawl`             | Submit job and exit without polling                                                                                                                                    |
 | `--format json` \| `--format jsonl` | `crawl`, `download` | Output format for crawl results                                                                                                                                        |
-| `--wait N`                          | `scrape`            | Delay (ms) before extraction; default waits for `h1`                                                                                                                   |
+| `--selector "<css>"`                | `scrape`            | CSS selector to extract; repeatable (`--selector ".price" --selector "h1"`). Falls back to a default tag set when omitted.                                             |
+| `--wait-until <event>`              | `scrape`            | Navigation event to await: `load` (default), `networkidle2`, `networkidle0`, `domcontentloaded`. Use `networkidle2` for JS/SPA pages.                                  |
+| `--wait-for "<css>"`                | `scrape`            | Wait for this selector to appear before extracting.                                                                                                                    |
+| `--wait N`                          | `scrape`            | Fixed delay (ms) before extraction (final pad, composes with the above).                                                                                               |
+| `--strict`                          | `scrape`            | Fail if a wait condition isn't met (default extracts whatever loaded via `bestAttempt`).                                                                               |
 | `--visible-only`                    | `links`             | Keep only visible links                                                                                                                                                |
 | `--exclude-external`                | `links`             | Exclude off-domain links                                                                                                                                               |
 | `--prompt "..."`                    | `json`              | Required extraction instruction                                                                                                                                        |
@@ -82,6 +86,8 @@ Prefer a **single CLI invocation**. The CLI already accepts multiple URLs in one
 npm run crawl -- https://example.com --limit 100
 npm run crawl -- https://example.com --no-wait
 npm run scrape -- https://example.com/page --wait 3000
+npm run scrape -- https://example.com/product --selector ".price" --selector "h1"
+npm run scrape -- https://spa.example.com --wait-until networkidle2 --wait-for ".product-grid"
 npm run markdown -- https://example.com/article
 npm run markdown -- https://www.zendesk.com/pricing/ --headers '{"Accept-Language":"en-US,en;q=0.9"}' --cookies '[{"name":"georedirect","value":"false","domain":".zendesk.com"}]'
 npm run content -- https://example.com

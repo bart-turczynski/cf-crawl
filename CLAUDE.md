@@ -20,7 +20,7 @@ npm install
 # (csv/tsv/txt, one URL per line; first URL-like token wins). tomarkdown does not.
 npm run crawl -- <url> [<url2> ...] [--render] [--limit N] [--max_depth N] [--no-wait] [--format json|jsonl] [--input <file>]
 npm run crawl:render -- <url> [<url2> ...]
-npm run scrape -- <url> [<url2> ...] [--wait N] [--input <file>]
+npm run scrape -- <url> [<url2> ...] [--selector "<css>" ...] [--wait-until load|networkidle2|networkidle0|domcontentloaded] [--wait-for "<css>"] [--wait N] [--strict] [--headers '{...}'] [--ua "<UA>"] [--cookies '[...]'] [--input <file>]
 npm run markdown -- <url> [<url2> ...] [--input <file>]
 npm run content -- <url> [<url2> ...] [--input <file>]
 npm run links -- <url> [<url2> ...] [--visible-only] [--exclude-external] [--input <file>]
@@ -110,7 +110,8 @@ Requires `.env` with:
 - `index.ts` is the only process-exit boundary; CLI/config validation throws typed errors
 - `crawl` is the only command with a real `--render` switch; other page commands use the endpoint's native rendering behavior
 - `crawl` and `download` support `--format jsonl`
-- `scrape` supports `--wait N`; without it, `/scrape` waits for an `h1` before extracting
+- `scrape` wait controls compose: `--wait-until <load|networkidle2|networkidle0|domcontentloaded>` (→ `gotoOptions.waitUntil`), `--wait-for "<css>"` (→ `waitForSelector`), and `--wait N` (→ `waitForTimeout`) are applied in that order. The default is `waitUntil: "load"` + `bestAttempt: true` (no more hardcoded `h1` wait), so a scrape extracts whatever loaded rather than failing when a condition isn't met; `--strict` disables `bestAttempt`
+- `scrape` accepts a repeatable `--selector "<css>"` flag for custom element extraction; when none are given it falls back to a hardcoded `DEFAULT_SELECTORS` set. It also accepts `--headers`/`--ua`/`--cookies` (same Browser Rendering trio as `markdown`, parsed via the shared `getBrowserHttpOptions`), forwarded as `setExtraHTTPHeaders`/`userAgent`/`cookies`
 - Cloudflare retains crawl results for 14 days after completion; after that `download` will fail for that `jobId`
 - `links` supports `--visible-only` and `--exclude-external`
 - `json` requires `--prompt` and optionally accepts `--schema <path>`

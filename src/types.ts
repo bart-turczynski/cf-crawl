@@ -45,7 +45,9 @@ export interface Flags {
   max_depth?: number;
   wait?: number | boolean;
   "no-wait"?: boolean;
-  [key: string]: string | number | boolean | undefined;
+  /** Repeatable flag — each `--selector` occurrence appends one CSS selector. */
+  selector?: string[];
+  [key: string]: string | number | boolean | string[] | undefined;
 }
 
 // --- Config ---
@@ -167,8 +169,40 @@ export interface ResultWriter {
   readonly recordCount: number;
 }
 
+/**
+ * A browser cookie accepted by Cloudflare Browser Rendering endpoints. The API
+ * accepts more fields (path, expires, httpOnly, ...), but we forward the minimal
+ * trio that covers the common geo-routing / session use cases.
+ */
+export interface BrowserCookie {
+  name: string;
+  value: string;
+  domain: string;
+}
+
+/**
+ * Navigation lifecycle event to wait for before extracting, mapped to
+ * `gotoOptions.waitUntil`. Ordered earliest -> latest.
+ */
+export type WaitUntilEvent = "domcontentloaded" | "load" | "networkidle2" | "networkidle0";
+
 export interface ScrapeOptions {
+  /** Fixed delay (ms) before extracting; mapped to `waitForTimeout`. */
   wait?: number;
+  /** CSS selectors to extract. When empty, `scrape` falls back to DEFAULT_SELECTORS. */
+  selectors?: SelectorSpec[];
+  /** Wait for this CSS selector to appear before extracting; mapped to `waitForSelector`. */
+  waitFor?: string;
+  /** Navigation event to await; mapped to `gotoOptions.waitUntil`. Defaults to "load". */
+  waitUntil?: WaitUntilEvent;
+  /** When true, disable `bestAttempt` so an unmet wait condition fails the scrape. */
+  strict?: boolean;
+  /** Forwarded as `setExtraHTTPHeaders`. */
+  headers?: Record<string, string>;
+  /** Forwarded as `userAgent`. */
+  userAgent?: string;
+  /** Forwarded as `cookies`. */
+  cookies?: BrowserCookie[];
 }
 
 // --- Crawl job tracking ---

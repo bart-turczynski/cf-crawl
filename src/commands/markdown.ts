@@ -12,18 +12,15 @@ import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
 import { saveText } from "../output.js";
 import { logOutputUrl } from "../output-log.js";
-import type { CfApiResponse } from "../types.js";
+import type { BrowserCookie, CfApiResponse } from "../types.js";
 
-export interface MarkdownCookie {
-  name: string;
-  value: string;
-  domain: string;
-}
+/** @deprecated alias retained for back-compat; use {@link BrowserCookie}. */
+export type MarkdownCookie = BrowserCookie;
 
 export interface MarkdownOptions {
   headers?: Record<string, string>;
   userAgent?: string;
-  cookies?: MarkdownCookie[];
+  cookies?: BrowserCookie[];
 }
 
 export async function markdown(
