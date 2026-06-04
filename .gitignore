@@ -3,6 +3,10 @@ node_modules/
 output/
 dist/
 
+# TypeScript / Vitest
+*.tsbuildinfo
+coverage/
+
 # Claude Cowork
 .claude/
 
