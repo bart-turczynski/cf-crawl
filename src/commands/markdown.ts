@@ -11,6 +11,7 @@
 import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
 import { saveText } from "../output.js";
+import { logOutputUrl } from "../output-log.js";
 import type { CfApiResponse } from "../types.js";
 
 export interface MarkdownCookie {
@@ -48,7 +49,10 @@ export async function markdown(
   const lineCount = md ? md.split("\n").length : 0;
   console.log(`  ${md.length} chars, ${lineCount} lines`);
 
-  await saveText(`markdown_${urlSlug(url)}_${timestamp()}.md`, md);
+  const ts = timestamp();
+  const filename = `markdown_${urlSlug(url)}_${ts}.md`;
+  await saveText(filename, md);
+  await logOutputUrl({ command: "markdown", url, filename, timestamp: ts });
 
   return result;
 }

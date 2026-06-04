@@ -5,6 +5,7 @@
 import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
 import { saveJson } from "../output.js";
+import { logOutputUrl } from "../output-log.js";
 import type { CfApiResponse, ScrapeResultGroup, SelectorSpec } from "../types.js";
 
 export const DEFAULT_SELECTORS: SelectorSpec[] = [
@@ -45,7 +46,9 @@ export async function scrape(
     console.log(`  ${group.selector}: ${group.results?.length ?? 0} element(s)`);
   }
 
-  const slug = urlSlug(url);
-  await saveJson(`scrape_${slug}_${timestamp()}.json`, result);
+  const ts = timestamp();
+  const filename = `scrape_${urlSlug(url)}_${ts}.json`;
+  await saveJson(filename, { url, ...result });
+  await logOutputUrl({ command: "scrape", url, filename, timestamp: ts });
   return result;
 }

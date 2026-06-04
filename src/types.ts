@@ -18,6 +18,18 @@ export interface JobLogEvent extends Partial<JobEntry> {
   jobId: string;
 }
 
+/**
+ * One line in the `output/urls.jsonl` sidecar manifest. Sync single-page
+ * commands append an entry per saved file so the originating URL survives
+ * the lossy `urlSlug()` filename encoding.
+ */
+export interface OutputUrlEntry {
+  command: string;
+  url: string;
+  filename: string;
+  timestamp: string;
+}
+
 // --- CLI ---
 
 export interface ParsedArgs {
