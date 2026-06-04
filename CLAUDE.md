@@ -75,6 +75,7 @@ Main modules:
 - **`src/input.ts`** — `readUrlsFromFile` for the `--input <file>` flag. Format-agnostic line-oriented parser: first URL-like token per line wins, comments (`#`) and blank lines skipped, BOM stripped.
 - **`src/output.ts`** — `saveJson`, `saveText`, `saveBinary`, output dir creation, and crawl-specific streaming writers
 - **`src/job-log.ts`** — append-only JSONL crawl-job events with fold-on-read reconstruction
+- **`src/output-log.ts`** — `logOutputUrl` appends `{command, url, filename, timestamp}` to `output/urls.jsonl` so the source URL of each sync output survives the lossy `urlSlug()` filename
 - **`src/types.ts`** — shared types for CLI flags, API responses, job entries, and writer contracts
 
 High-level dependency flow:
@@ -120,6 +121,7 @@ Requires `.env` with:
 - Large crawl downloads stream directly into the final output file during pagination; there is no `.partial` file model
 - `src/cli.ts` uses a per-run execution context so SIGINT listeners are removed in `finally`
 - Job logging is append-only JSONL; reads fold the latest state per `jobId`
+- Sync single-page commands persist the source URL two ways: JSON outputs (`scrape`, `links`, `snapshot`, `json`) embed a top-level `url` key (`{ url, ...result }`); all sync commands also append `{command, url, filename, timestamp}` to `output/urls.jsonl`. This recovers the URL that `urlSlug()` otherwise collapses lossily into the filename. Forward-looking only — historical files are unaffected. Crawl (async) outputs already carry per-page `records[*].url`
 
 ## Testing
 

@@ -9,6 +9,7 @@ import { readFile } from "node:fs/promises";
 import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
 import { saveJson } from "../output.js";
+import { logOutputUrl } from "../output-log.js";
 import { CrawlError } from "../errors.js";
 import type { CfApiResponse } from "../types.js";
 
@@ -51,8 +52,10 @@ export async function json(
     body: JSON.stringify(body),
   });
 
-  const filename = `json_${urlSlug(url)}_${timestamp()}.json`;
-  await saveJson(filename, result);
+  const ts = timestamp();
+  const filename = `json_${urlSlug(url)}_${ts}.json`;
+  await saveJson(filename, { url, ...result });
+  await logOutputUrl({ command: "json", url, filename, timestamp: ts });
 
   return result;
 }

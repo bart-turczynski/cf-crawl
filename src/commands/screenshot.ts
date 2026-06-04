@@ -5,6 +5,7 @@
 import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetchBinary } from "../api-client.js";
 import { saveBinary } from "../output.js";
+import { logOutputUrl } from "../output-log.js";
 import type { ScreenshotOptions } from "../types.js";
 
 export async function screenshot(
@@ -29,8 +30,10 @@ export async function screenshot(
   console.log(`  ${result.length} bytes`);
 
   const ext = format === "jpeg" ? "jpg" : format;
-  const filename = `screenshot_${urlSlug(url)}_${timestamp()}.${ext}`;
+  const ts = timestamp();
+  const filename = `screenshot_${urlSlug(url)}_${ts}.${ext}`;
   const filepath = await saveBinary(filename, result);
+  await logOutputUrl({ command: "screenshot", url, filename, timestamp: ts });
 
   return { filepath, bytes: result.length };
 }

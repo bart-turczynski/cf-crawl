@@ -5,6 +5,7 @@
 import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
 import { saveText } from "../output.js";
+import { logOutputUrl } from "../output-log.js";
 import type { CfApiResponse } from "../types.js";
 
 export async function content(targetUrl: string): Promise<CfApiResponse<string>> {
@@ -19,7 +20,10 @@ export async function content(targetUrl: string): Promise<CfApiResponse<string>>
   const html = result.result ?? "";
   console.log(`  ${html.length} chars`);
 
-  await saveText(`content_${urlSlug(url)}_${timestamp()}.html`, html);
+  const ts = timestamp();
+  const filename = `content_${urlSlug(url)}_${ts}.html`;
+  await saveText(filename, html);
+  await logOutputUrl({ command: "content", url, filename, timestamp: ts });
 
   return result;
 }

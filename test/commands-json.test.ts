@@ -12,12 +12,18 @@ vi.mock("../src/output.js", () => ({
   saveJson: vi.fn().mockResolvedValue("/tmp/cf-crawl-test-output/out.json"),
 }));
 
+vi.mock("../src/output-log.js", () => ({
+  logOutputUrl: vi.fn(() => Promise.resolve()),
+}));
+
 vi.mock("node:fs/promises", () => ({
   readFile: vi.fn(),
 }));
 
 const { json } = await import("../src/commands/json.js");
 const { cfFetch } = (await import("../src/api-client.js")) as { cfFetch: Mock };
+const { saveJson } = (await import("../src/output.js")) as { saveJson: Mock };
+const { logOutputUrl } = (await import("../src/output-log.js")) as { logOutputUrl: Mock };
 const fsPromises = (await import("node:fs/promises")) as unknown as { readFile: Mock };
 const { CrawlError } = await import("../src/errors.js");
 
@@ -48,6 +54,23 @@ describe("json command", () => {
     expect(body.url).toBe("https://example.com/");
     expect(body.prompt).toBe("extract title");
     expect(body.response_format).toBeUndefined();
+  });
+
+  it("embeds the url in the saved file and logs it to the manifest", async () => {
+    cfFetch.mockResolvedValueOnce({ success: true, result: { title: "Hi" } });
+
+    await json("https://example.com", { prompt: "extract title" });
+
+    const [filename, saved] = saveJson.mock.calls[0] as [string, { url: string; success: boolean }];
+    expect(saved.url).toBe("https://example.com/");
+    expect(saved.success).toBe(true);
+    expect(logOutputUrl).toHaveBeenCalledWith(
+      expect.objectContaining({
+        command: "json",
+        url: "https://example.com/",
+        filename,
+      }),
+    );
   });
 
   it("reads schema file and wraps it as response_format when --schema is given", async () => {

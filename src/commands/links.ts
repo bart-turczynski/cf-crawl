@@ -5,6 +5,7 @@
 import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
 import { saveJson } from "../output.js";
+import { logOutputUrl } from "../output-log.js";
 import type { CfApiResponse, LinksOptions } from "../types.js";
 
 export async function links(
@@ -26,8 +27,10 @@ export async function links(
   const list = result.result ?? [];
   console.log(`  ${list.length} link(s)`);
 
-  const filename = `links_${urlSlug(url)}_${timestamp()}.json`;
-  await saveJson(filename, result);
+  const ts = timestamp();
+  const filename = `links_${urlSlug(url)}_${ts}.json`;
+  await saveJson(filename, { url, ...result });
+  await logOutputUrl({ command: "links", url, filename, timestamp: ts });
 
   return result;
 }

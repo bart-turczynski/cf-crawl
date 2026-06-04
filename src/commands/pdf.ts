@@ -5,6 +5,7 @@
 import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetchBinary } from "../api-client.js";
 import { saveBinary } from "../output.js";
+import { logOutputUrl } from "../output-log.js";
 
 export async function pdf(targetUrl: string): Promise<{ filepath: string; bytes: number }> {
   const url = normalizeUrl(targetUrl);
@@ -17,8 +18,10 @@ export async function pdf(targetUrl: string): Promise<{ filepath: string; bytes:
 
   console.log(`  ${result.length} bytes`);
 
-  const filename = `pdf_${urlSlug(url)}_${timestamp()}.pdf`;
+  const ts = timestamp();
+  const filename = `pdf_${urlSlug(url)}_${ts}.pdf`;
   const filepath = await saveBinary(filename, result);
+  await logOutputUrl({ command: "pdf", url, filename, timestamp: ts });
 
   return { filepath, bytes: result.length };
 }
