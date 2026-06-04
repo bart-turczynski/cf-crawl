@@ -6,8 +6,13 @@ import { normalizeUrl, timestamp, urlSlug } from "../utils.js";
 import { cfFetch } from "../api-client.js";
 import { saveJson } from "../output.js";
 import { logOutputUrl } from "../output-log.js";
-import type { CfApiResponse, ScrapeResultGroup, SelectorSpec } from "../types.js";
+import type { CfApiResponse, ScrapeOptions, ScrapeResultGroup, SelectorSpec } from "../types.js";
 
+/**
+ * Fallback selectors used when the caller doesn't supply their own via
+ * `--selector`/`opts.selectors`. They mirror a "give me the readable bones of
+ * the page" default; custom selectors fully replace this list.
+ */
 export const DEFAULT_SELECTORS: SelectorSpec[] = [
   { selector: "head > title" },
   { selector: "meta[name='description']" },
@@ -24,16 +29,40 @@ export const DEFAULT_SELECTORS: SelectorSpec[] = [
 
 export async function scrape(
   targetUrl: string,
-  { wait = 0 }: { wait?: number } = {},
+  opts: ScrapeOptions = {},
 ): Promise<CfApiResponse<ScrapeResultGroup[]>> {
+  const { wait = 0, selectors, waitFor, waitUntil, strict, headers, userAgent, cookies } = opts;
   const url = normalizeUrl(targetUrl);
+  const elements = selectors && selectors.length > 0 ? selectors : DEFAULT_SELECTORS;
+  const navWaitUntil = waitUntil ?? "load";
+
   console.log(`\nScraping: ${url}`);
-  if (wait) console.log(`Wait: ${wait}ms`);
+  console.log(
+    `Selectors: ${elements.map((e) => e.selector).join(", ")}${
+      elements === DEFAULT_SELECTORS ? " (default)" : ""
+    }`,
+  );
+  const waitParts = [`until ${navWaitUntil}`];
+  if (waitFor) waitParts.push(`selector "${waitFor}"`);
+  if (wait > 0) waitParts.push(`${wait}ms`);
+  console.log(`Wait: ${waitParts.join(" + ")}${strict ? " (strict)" : ""}`);
   console.log();
 
-  const body: Record<string, unknown> = { url, elements: DEFAULT_SELECTORS };
+  // Wait directives compose: gotoOptions gates navigation, waitForSelector then
+  // waits for an element, waitForTimeout adds a fixed pad. bestAttempt lets the
+  // scrape proceed with whatever loaded if a wait condition times out; --strict
+  // turns it off so an unmet condition fails loudly instead.
+  const body: Record<string, unknown> = {
+    url,
+    elements,
+    gotoOptions: { waitUntil: navWaitUntil },
+  };
+  if (!strict) body.bestAttempt = true;
+  if (waitFor) body.waitForSelector = { selector: waitFor };
   if (wait > 0) body.waitForTimeout = wait;
-  else body.waitForSelector = { selector: "h1" };
+  if (headers && Object.keys(headers).length > 0) body.setExtraHTTPHeaders = headers;
+  if (userAgent) body.userAgent = userAgent;
+  if (cookies && cookies.length > 0) body.cookies = cookies;
 
   const result = await cfFetch<ScrapeResultGroup[]>("/scrape", {
     method: "POST",

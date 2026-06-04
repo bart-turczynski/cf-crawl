@@ -83,10 +83,16 @@ npx tsx index.ts jobs
 ### Scrape pages
 
 ```bash
-npx tsx index.ts scrape <url> [<url2> ...] [--wait N]
+npx tsx index.ts scrape <url> [<url2> ...] [--selector "<css>" ...] [--wait-until load|networkidle2|networkidle0|domcontentloaded] [--wait-for "<css>"] [--wait N] [--strict] [--headers '{...}'] [--ua "<UA>"] [--cookies '[...]']
 ```
 
-Extracts:
+Pass `--selector` (repeatable) to extract exactly the elements you want:
+
+```bash
+npx tsx index.ts scrape https://example.com --selector ".price" --selector "h1"
+```
+
+When no `--selector` is given, a default set is used:
 
 - title
 - meta description
@@ -97,7 +103,19 @@ Extracts:
 - links
 - images
 
-`/scrape` always uses browser rendering. `--wait N` adds a fixed delay before extraction; without it, the command waits for an `h1`.
+`/scrape` always uses browser rendering. By default it waits for the page `load` event and uses `bestAttempt`, so it extracts whatever loaded rather than failing. Tune the wait — the directives compose, applied in this order:
+
+- `--wait-until` — navigation event to await: `load` (default), `networkidle2`, `networkidle0`, or `domcontentloaded`. Use `networkidle2` for client-rendered/SPA pages.
+- `--wait-for "<css>"` — wait for a specific element to appear before extracting.
+- `--wait N` — fixed delay (ms) as a final pad.
+- `--strict` — fail loudly if a wait condition isn't met (disables `bestAttempt`).
+
+```bash
+# JS-rendered page: wait for the network to settle and the grid to appear
+npx tsx index.ts scrape https://spa.example.com --wait-until networkidle2 --wait-for ".product-grid"
+```
+
+`--headers`, `--ua`, and `--cookies` work the same as on `markdown` and forward to `setExtraHTTPHeaders`, `userAgent`, and `cookies`.
 
 ### Convert pages to markdown
 
@@ -225,7 +243,7 @@ Notes:
 ```bash
 npm run crawl -- <url> [<url2> ...]
 npm run crawl:render -- <url> [<url2> ...]
-npm run scrape -- <url> [<url2> ...]
+npm run scrape -- <url> [<url2> ...] [--selector "<css>" ...] [--wait-until <event>] [--wait-for "<css>"] [--strict]
 npm run markdown -- <url> [<url2> ...]
 npm run content -- <url> [<url2> ...]
 npm run links -- <url> [<url2> ...] [--visible-only] [--exclude-external]

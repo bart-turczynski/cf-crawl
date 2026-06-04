@@ -30,6 +30,8 @@ import type {
   LinksOptions,
   ScreenshotOptions,
   ScreenshotFormat,
+  SelectorSpec,
+  WaitUntilEvent,
 } from "./types.js";
 
 interface ExecutionContext {
@@ -44,6 +46,12 @@ interface CommandSpec {
 
 const OUTPUT_FORMATS = new Set<OutputFormat>(["json", "jsonl"]);
 const SCREENSHOT_FORMATS = new Set<ScreenshotFormat>(["png", "jpeg", "webp"]);
+const WAIT_UNTIL_EVENTS = new Set<WaitUntilEvent>([
+  "domcontentloaded",
+  "load",
+  "networkidle2",
+  "networkidle0",
+]);
 
 const URL_INPUT_HINT = "[--input <file>]";
 const CONCURRENCY_HINT = "[--concurrency N]";
@@ -53,7 +61,7 @@ const USAGE = {
   crawl: `node index.js crawl <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--render] [--limit N] [--no-wait]`,
   status: "node index.js status <jobId>",
   download: "node index.js download <jobId>",
-  scrape: `node index.js scrape <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--wait N]`,
+  scrape: `node index.js scrape <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--selector "<css>" ...] [--wait-until load|networkidle2|networkidle0|domcontentloaded] [--wait-for "<css>"] [--wait N] [--strict] [--headers '{"Name":"value"}'] [--ua "<UA>"] [--cookies '[{"name":"k","value":"v","domain":".example.com"}]']`,
   markdown: `node index.js markdown <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--headers '{"Name":"value"}'] [--ua "<UA>"] [--cookies '[{"name":"k","value":"v","domain":".example.com"}]']`,
   content: `node index.js content <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT}`,
   links: `node index.js links <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--visible-only] [--exclude-external]`,
@@ -114,9 +122,15 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (args[i].startsWith("--")) {
       const key = args[i].slice(2);
       const numericFlags = new Set(["limit", "max_depth", "wait", "concurrency"]);
+      const repeatableFlags = new Set(["selector"]);
       const next = args[i + 1];
       if (next && !next.startsWith("--")) {
-        flags[key] = numericFlags.has(key) && /^\d+$/.test(next) ? Number(next) : next;
+        if (repeatableFlags.has(key)) {
+          const existing = flags[key];
+          flags[key] = Array.isArray(existing) ? [...existing, next] : [next];
+        } else {
+          flags[key] = numericFlags.has(key) && /^\d+$/.test(next) ? Number(next) : next;
+        }
         i++;
       } else {
         flags[key] = true;
@@ -157,7 +171,20 @@ Download options:
   --format F     Output format: "json" (default) or "jsonl" (one record per line)
 
 Scrape options:
-  --wait N       Wait N ms before extracting (scrape always uses browser rendering)
+  --selector CSS    Extract this CSS selector. Repeatable: pass --selector once per
+                    selector. When omitted, a default set of common tags is used.
+  --wait-until EVT  Navigation event to await before extracting: load (default),
+                    networkidle2, networkidle0, or domcontentloaded.
+  --wait-for CSS    Also wait for this CSS selector to appear before extracting.
+  --wait N          Also wait N ms before extracting (fixed pad).
+  --strict          Fail if a wait condition isn't met (default: extract anyway).
+  --headers JSON    JSON object of extra request headers (-> setExtraHTTPHeaders)
+  --ua STRING       Override the default browser User-Agent string
+  --cookies JSON    JSON array of cookies, each {"name","value","domain"}
+
+  Wait directives compose: navigation waits for --wait-until, then --wait-for,
+  then --wait. By default scrape uses bestAttempt and extracts whatever loaded
+  even if a condition times out; --strict turns that off.
 
 Links options:
   --visible-only         Include only visible links
@@ -190,6 +217,8 @@ Examples:
   node index.js crawl example.com
   node index.js crawl site1.com site2.com --render --limit 100
   node index.js scrape https://example.com https://example.org
+  node index.js scrape https://example.com --selector ".price" --selector "h1"
+  node index.js scrape https://spa.example.com --wait-until networkidle2 --wait-for ".product-grid"
   node index.js markdown https://example.com
   node index.js content https://example.com
   node index.js links https://example.com --exclude-external
@@ -294,9 +323,46 @@ function getCrawlOptions(flags: Flags): { render: boolean; options: CrawlOptions
   };
 }
 
+function getSelectorSpecs(flags: Flags): SelectorSpec[] {
+  const raw = flags.selector;
+  if (raw == null) return [];
+  const list = Array.isArray(raw) ? raw : [raw];
+  return list.map((value) => {
+    const selector = typeof value === "string" ? value.trim() : "";
+    if (selector.length === 0) {
+      failUsage("--selector requires a non-empty CSS selector", USAGE.scrape);
+    }
+    return { selector };
+  });
+}
+
 function getScrapeOptions(flags: Flags): ScrapeOptions {
   const wait = getNumberFlag(flags, "wait", "--wait must be a non-negative integer");
-  return wait != null ? { wait } : {};
+  const options: ScrapeOptions = { ...getBrowserHttpOptions(flags) };
+  if (wait != null) options.wait = wait;
+
+  const selectors = getSelectorSpecs(flags);
+  if (selectors.length > 0) options.selectors = selectors;
+
+  if (flags["wait-for"] != null) {
+    const value = flags["wait-for"];
+    if (typeof value !== "string" || value.trim().length === 0) {
+      failUsage("--wait-for requires a non-empty CSS selector", USAGE.scrape);
+    }
+    options.waitFor = value.trim();
+  }
+
+  if (flags["wait-until"] != null) {
+    const value = typeof flags["wait-until"] === "string" ? flags["wait-until"] : "";
+    if (!WAIT_UNTIL_EVENTS.has(value as WaitUntilEvent)) {
+      failUsage(`--wait-until must be one of: ${[...WAIT_UNTIL_EVENTS].join(", ")}`, USAGE.scrape);
+    }
+    options.waitUntil = value as WaitUntilEvent;
+  }
+
+  if (flags.strict) options.strict = true;
+
+  return options;
 }
 
 function parseJsonFlag<T>(raw: unknown, flagName: string, validator: (v: unknown) => v is T): T {
@@ -332,7 +398,12 @@ function isCookieArray(v: unknown): v is MarkdownCookie[] {
   );
 }
 
-function getMarkdownOptions(flags: Flags): MarkdownOptions {
+/**
+ * Shared `--headers` / `--ua` / `--cookies` parsing for the Browser Rendering
+ * endpoints that accept them (`markdown`, `scrape`). Each maps to the endpoint
+ * body fields `setExtraHTTPHeaders`, `userAgent`, and `cookies` respectively.
+ */
+function getBrowserHttpOptions(flags: Flags): MarkdownOptions {
   const options: MarkdownOptions = {};
   if (flags.headers != null) {
     options.headers = parseJsonFlag(flags.headers, "headers", isHeaderRecord);
@@ -345,6 +416,10 @@ function getMarkdownOptions(flags: Flags): MarkdownOptions {
     options.cookies = parseJsonFlag(flags.cookies, "cookies", isCookieArray);
   }
   return options;
+}
+
+function getMarkdownOptions(flags: Flags): MarkdownOptions {
+  return getBrowserHttpOptions(flags);
 }
 
 function getLinksOptions(flags: Flags): LinksOptions {
