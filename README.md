@@ -1,5 +1,7 @@
 # cf-crawl
 
+[![codecov](https://codecov.io/gh/bart-turczynski/cf-crawl/branch/master/graph/badge.svg)](https://codecov.io/gh/bart-turczynski/cf-crawl)
+
 Crawl sites, scrape pages, render PDFs and screenshots, extract structured JSON, and convert local files to markdown using the [Cloudflare Browser Rendering API](https://developers.cloudflare.com/browser-rendering/).
 
 The CLI supports three broad workflows:
