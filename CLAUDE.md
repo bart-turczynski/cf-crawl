@@ -53,12 +53,15 @@ npx vitest run -t "some test name"
 
 ## Claude Code skill
 
-This repo ships a `skill.md` that maps to a Claude Code skill. Install it with:
+This repo ships a `skill.md` at the root that maps to a Claude Code skill. Install it once per machine by symlinking it into your **user-level** skills directory, so the installed skill always tracks the version-controlled source:
 
 ```bash
-mkdir -p .claude/skills/cf-crawl
-cp skill.md .claude/skills/cf-crawl/SKILL.md
+# Run from anywhere inside a clone of this repo
+mkdir -p ~/.claude/skills/cf-crawl
+ln -sf "$(git rev-parse --show-toplevel)/skill.md" ~/.claude/skills/cf-crawl/SKILL.md
 ```
+
+`git rev-parse --show-toplevel` resolves to the repo root wherever it was cloned, and `~` expands to each user's home, so this command is device- and user-independent. Because it's a symlink, edits to `skill.md` (the tracked source) take effect with no re-install.
 
 ## Architecture
 

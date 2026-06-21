@@ -17,9 +17,10 @@ npm install
 cp .env.example .env
 # Fill in your Cloudflare credentials in .env
 
-# Install the Claude Code skill
-mkdir -p .claude/skills/cf-crawl
-cp skill.md .claude/skills/cf-crawl/SKILL.md
+# Install the Claude Code skill (symlink into your user-level skills dir).
+# Run from anywhere inside the clone; works on any machine/user.
+mkdir -p ~/.claude/skills/cf-crawl
+ln -sf "$(git rev-parse --show-toplevel)/skill.md" ~/.claude/skills/cf-crawl/SKILL.md
 ```
 
 You need:
