@@ -23,15 +23,23 @@ import type {
 export async function submitCrawl(
   startUrl: string,
   render = false,
-  { limit = 100_000, max_depth }: CrawlOptions = {},
+  { limit = 100_000, max_depth, includePatterns, excludePatterns }: CrawlOptions = {},
 ): Promise<CrawlJob> {
   const url = normalizeUrl(startUrl);
   console.log(`\nStarting crawl: ${url}`);
   console.log(`Render mode: ${render ? "full browser (billed)" : "fast HTML (free beta)"}`);
   console.log(`Limit: ${limit}\n`);
+  if (includePatterns?.length) console.log(`Include patterns: ${includePatterns.join(", ")}`);
+  if (excludePatterns?.length) console.log(`Exclude patterns: ${excludePatterns.join(", ")}`);
 
   const body: Record<string, unknown> = { url, render, limit };
   if (max_depth != null) body.max_depth = max_depth;
+  if (includePatterns?.length || excludePatterns?.length) {
+    body.options = {
+      ...(includePatterns?.length ? { includePatterns } : {}),
+      ...(excludePatterns?.length ? { excludePatterns } : {}),
+    };
+  }
 
   const job = await cfFetch<CrawlResult | string>("/crawl", {
     method: "POST",

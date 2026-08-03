@@ -47,6 +47,10 @@ export interface Flags {
   "no-wait"?: boolean;
   /** Repeatable flag — each `--selector` occurrence appends one CSS selector. */
   selector?: string[];
+  /** Repeatable flag — each `--include-pattern` occurrence appends one wildcard URL pattern. */
+  "include-pattern"?: string[];
+  /** Repeatable flag — each `--exclude-pattern` occurrence appends one wildcard URL pattern. */
+  "exclude-pattern"?: string[];
   [key: string]: string | number | boolean | string[] | undefined;
 }
 
@@ -147,6 +151,8 @@ export interface CrawlOptions {
   max_depth?: number;
   wait?: boolean;
   format?: OutputFormat;
+  includePatterns?: string[];
+  excludePatterns?: string[];
 }
 
 export interface DownloadOptions {

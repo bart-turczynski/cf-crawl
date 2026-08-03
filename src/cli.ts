@@ -58,7 +58,7 @@ const CONCURRENCY_HINT = "[--concurrency N]";
 const DEFAULT_CONCURRENCY = 10;
 
 const USAGE = {
-  crawl: `node index.js crawl <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--render] [--limit N] [--no-wait]`,
+  crawl: `node index.js crawl <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--render] [--limit N] [--max_depth N] [--include-pattern "<glob>" ...] [--exclude-pattern "<glob>" ...] [--no-wait]`,
   status: "node index.js status <jobId>",
   download: "node index.js download <jobId>",
   scrape: `node index.js scrape <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--selector "<css>" ...] [--wait-until load|networkidle2|networkidle0|domcontentloaded] [--wait-for "<css>"] [--wait N] [--strict] [--headers '{"Name":"value"}'] [--ua "<UA>"] [--cookies '[{"name":"k","value":"v","domain":".example.com"}]']`,
@@ -122,7 +122,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (args[i].startsWith("--")) {
       const key = args[i].slice(2);
       const numericFlags = new Set(["limit", "max_depth", "wait", "concurrency"]);
-      const repeatableFlags = new Set(["selector"]);
+      const repeatableFlags = new Set(["selector", "include-pattern", "exclude-pattern"]);
       const next = args[i + 1];
       if (next && !next.startsWith("--")) {
         if (repeatableFlags.has(key)) {
@@ -161,11 +161,14 @@ Usage:
   node index.js jobs                                   List all logged jobs
 
 Crawl options:
-  --render       Use full browser rendering (billed; default is fast HTML-only)
-  --limit N      Max pages to crawl (default: 100000)
-  --max_depth N  Max link depth to follow
-  --no-wait      Submit job(s) and exit without polling (fire-and-forget)
-  --format F     Output format: "json" (default) or "jsonl" (one record per line)
+  --render                Use full browser rendering (billed; default is fast HTML-only)
+  --limit N                Max pages to crawl (default: 100000)
+  --max_depth N            Max link depth to follow
+  --include-pattern GLOB   Only crawl URLs matching this wildcard pattern. Repeatable.
+                           Exclude patterns take priority over include patterns.
+  --exclude-pattern GLOB   Skip URLs matching this wildcard pattern. Repeatable.
+  --no-wait                Submit job(s) and exit without polling (fire-and-forget)
+  --format F               Output format: "json" (default) or "jsonl" (one record per line)
 
 Download options:
   --format F     Output format: "json" (default) or "jsonl" (one record per line)
@@ -312,10 +315,15 @@ function getCrawlOptions(flags: Flags): { render: boolean; options: CrawlOptions
   const maxDepth = getNumberFlag(flags, "max_depth", "--max_depth must be a non-negative integer");
   const format = getOutputFormat(flags);
 
+  const includePatterns = flags["include-pattern"];
+  const excludePatterns = flags["exclude-pattern"];
+
   const options: CrawlOptions = {};
   if (limit != null) options.limit = limit;
   if (maxDepth != null) options.max_depth = maxDepth;
   if (format) options.format = format;
+  if (includePatterns?.length) options.includePatterns = includePatterns;
+  if (excludePatterns?.length) options.excludePatterns = excludePatterns;
 
   return {
     render: !!flags.render,
