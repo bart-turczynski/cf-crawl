@@ -121,6 +121,7 @@ Requires `.env` with:
 - `screenshot` supports `--full-page` and `--format png|jpeg|webp`
 - `tomarkdown` accepts local files only and rejects `http(s)` arguments intentionally
 - `--input <file>` reads URLs from a text file for any URL-taking command. Extension is ignored; per line, the first URL-looking token is taken, so CSVs/TSVs with header rows or extra columns work as-is. Lines starting with `#` and blank lines are skipped. File URLs are appended after any positional URLs.
+- `--include-pattern`/`--exclude-pattern` globs match full URLs, and `*` does **not** cross `/` — use `**` for path segments (`https://site.com/section/**`, not `*/section/*`, which matches nothing and silently skips every page but the seed)
 - `--concurrency N` caps in-flight requests across all URL-taking commands. Default is `10`, matching the Workers Paid quick-action limit (10 rps; 120 concurrent browsers). On Workers Free use `--concurrency 1` — the per-account limit is 0.1 rps. Implemented as a worker pool in `runConcurrent`; when `N >= items.length` the original `Promise.allSettled` fan-out is used.
 - Large crawl downloads stream directly into the final output file during pagination; there is no `.partial` file model
 - `src/cli.ts` uses a per-run execution context so SIGINT listeners are removed in `finally`
