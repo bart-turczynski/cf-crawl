@@ -1,6 +1,9 @@
 {
   "name": "cf-crawl",
   "packageManager": "pnpm@11.1.1",
+  "engines": {
+    "node": ">=22"
+  },
   "version": "1.0.0",
   "description": "Crawl and scrape websites using the Cloudflare Browser Rendering API",
   "type": "module",
