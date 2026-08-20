@@ -1,7 +1,5 @@
 # cf-crawl
 
-[![codecov](https://codecov.io/gh/bart-turczynski/cf-crawl/branch/master/graph/badge.svg)](https://codecov.io/gh/bart-turczynski/cf-crawl)
-
 Crawl sites, scrape pages, render PDFs and screenshots, extract structured JSON, and convert local files to markdown using the [Cloudflare Browser Rendering API](https://developers.cloudflare.com/browser-rendering/).
 
 The CLI supports three broad workflows:
@@ -22,6 +20,17 @@ cp .env.example .env
 mkdir -p ~/.claude/skills/cf-crawl
 ln -sf "$(git rev-parse --show-toplevel)/skill.md" ~/.claude/skills/cf-crawl/SKILL.md
 ```
+
+Enable the local verify gate. GitLab CI runs the same chain, but only when the
+namespace has CI/CD minutes available, so this hook is what actually blocks a
+broken push today:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+`.githooks/pre-push` runs typecheck, lint, format check, and tests before every push.
+Bypass a single push with `git push --no-verify`.
 
 You need:
 

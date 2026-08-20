@@ -1,0 +1,53 @@
+# Port of .github/workflows/verify.yml. Kept as a single fail-fast job so the
+# step order and the one dependency install match the GitHub workflow.
+
+stages:
+  - verify
+
+verify:
+  stage: verify
+  image: node:22
+  variables:
+    # corepack reads packageManager from package.json, pinning pnpm@11.1.1.
+    COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    PNPM_STORE_DIR: .pnpm-store
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store
+  before_script:
+    - corepack enable
+    - pnpm install --frozen-lockfile --store-dir "$PNPM_STORE_DIR"
+  script:
+    - pnpm run typecheck
+    - pnpm run lint
+    - pnpm run format:check
+    - pnpm run test
+    - pnpm exec vitest run --coverage --coverage.reporter=text --coverage.reporter=lcovonly --coverage.reporter=cobertura
+    # Codecov has no tokenless upload on GitLab, so this runs only when
+    # CODECOV_TOKEN is set. Never fails the pipeline, matching the GitHub
+    # workflow's fail_ci_if_error: false.
+    - |
+      if [ -n "${CODECOV_TOKEN:-}" ]; then
+        curl -fsSL --retry 3 -o codecov https://cli.codecov.io/latest/linux/codecov \
+          && chmod +x codecov \
+          && ./codecov upload-process --fail-on-error false --file coverage/lcov.info \
+          || echo "Codecov upload failed; continuing."
+      else
+        echo "CODECOV_TOKEN not set; skipping Codecov upload."
+      fi
+  coverage: '/All files[^|]*\|[^|]*\s+([\d.]+)/'
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths:
+      - coverage/
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
