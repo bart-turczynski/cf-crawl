@@ -1,0 +1,31 @@
+#!/bin/sh
+# Local verify gate, mirroring the steps in .gitlab-ci.yml.
+#
+# GitLab CI is the real gate once CI/CD minutes are available; until then this
+# is the only thing standing between a broken commit and master. Enable with:
+#
+#   git config core.hooksPath .githooks
+#
+# Bypass a single push with --no-verify when you know what you are doing.
+
+set -e
+
+# Nothing to verify when the push only deletes refs.
+only_deletes=1
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  if [ "$local_sha" != "0000000000000000000000000000000000000000" ]; then
+    only_deletes=0
+  fi
+done
+if [ "$only_deletes" -eq 1 ]; then
+  exit 0
+fi
+
+echo "pre-push: running verify chain (skip with --no-verify)"
+
+pnpm run typecheck
+pnpm run lint
+pnpm run format:check
+pnpm run test
+
+echo "pre-push: verify chain passed"
