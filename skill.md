@@ -45,6 +45,8 @@ Pick `markdown` when the user wants **clean readable content** ("get the article
 | `--limit N`                         | `crawl`             | Max pages to crawl                                                                                                                                                     |
 | `--max_depth N`                     | `crawl`             | Max link depth                                                                                                                                                         |
 | `--no-wait`                         | `crawl`             | Submit job and exit without polling                                                                                                                                    |
+| `--include-pattern "<glob>"`        | `crawl`             | Only crawl URLs matching this glob; repeatable. Matches the full URL, and `*` does not cross `/` — use `**` for path segments.                                         |
+| `--exclude-pattern "<glob>"`        | `crawl`             | Skip URLs matching this glob; repeatable. Same glob rules as `--include-pattern`.                                                                                      |
 | `--format json` \| `--format jsonl` | `crawl`, `download` | Output format for crawl results                                                                                                                                        |
 | `--selector "<css>"`                | `scrape`            | CSS selector to extract; repeatable (`--selector ".price" --selector "h1"`). Falls back to a default tag set when omitted.                                             |
 | `--wait-until <event>`              | `scrape`            | Navigation event to await: `load` (default), `networkidle2`, `networkidle0`, `domcontentloaded`. Use `networkidle2` for JS/SPA pages.                                  |
@@ -146,5 +148,6 @@ Summarize the result based on the command:
 - `.env` must contain `CF_ACCOUNT_ID` and `CF_API_TOKEN` in the project root
 - `crawl` is async; all other live-URL commands are synchronous
 - `crawl` results stream directly into the final output file — there is no `.partial` file
+- Crawl patterns are globs over the full URL where `*` stops at `/`: `https://site.com/section/**` works, `*/section/*` matches nothing and silently skips every page but the seed
 - `tomarkdown` only accepts local files and intentionally rejects live URLs
 - Use `markdown` for live webpages, not `tomarkdown`

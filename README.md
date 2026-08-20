@@ -13,7 +13,7 @@ The CLI supports three broad workflows:
 ## Setup
 
 ```bash
-npm install
+pnpm install
 cp .env.example .env
 # Fill in your Cloudflare credentials in .env
 
@@ -55,6 +55,11 @@ Options:
 - `--max_depth N` — max link depth to follow
 - `--no-wait` — submit the job and exit without polling
 - `--format json|jsonl` — output format when results are downloaded
+- `--include-pattern <glob>` / `--exclude-pattern <glob>` — filter which crawled URLs are kept; both repeatable
+
+Patterns match the full URL, and `*` does not cross `/`. Use `**` for path segments:
+`https://site.com/section/**`, not `*/section/*` — the latter matches nothing and silently
+skips every page but the seed.
 
 Examples:
 
@@ -241,23 +246,23 @@ Notes:
 - Live `http(s)` URLs are rejected intentionally
 - Use `markdown` for live webpages
 
-## npm Scripts
+## Scripts
 
 ```bash
-npm run crawl -- <url> [<url2> ...]
-npm run crawl:render -- <url> [<url2> ...]
-npm run scrape -- <url> [<url2> ...] [--selector "<css>" ...] [--wait-until <event>] [--wait-for "<css>"] [--strict]
-npm run markdown -- <url> [<url2> ...]
-npm run content -- <url> [<url2> ...]
-npm run links -- <url> [<url2> ...] [--visible-only] [--exclude-external]
-npm run json -- <url> [<url2> ...] --prompt "..." [--schema ./schema.json]
-npm run pdf -- <url> [<url2> ...]
-npm run screenshot -- <url> [<url2> ...] [--full-page] [--format png|jpeg|webp]
-npm run snapshot -- <url> [<url2> ...]
-npm run tomarkdown -- <file> [<file2> ...]
-npm run status -- <jobId>
-npm run download -- <jobId> [--format json|jsonl]
-npm run jobs
+pnpm run crawl -- <url> [<url2> ...]
+pnpm run crawl:render -- <url> [<url2> ...]
+pnpm run scrape -- <url> [<url2> ...] [--selector "<css>" ...] [--wait-until <event>] [--wait-for "<css>"] [--strict]
+pnpm run markdown -- <url> [<url2> ...]
+pnpm run content -- <url> [<url2> ...]
+pnpm run links -- <url> [<url2> ...] [--visible-only] [--exclude-external]
+pnpm run json -- <url> [<url2> ...] --prompt "..." [--schema ./schema.json]
+pnpm run pdf -- <url> [<url2> ...]
+pnpm run screenshot -- <url> [<url2> ...] [--full-page] [--format png|jpeg|webp]
+pnpm run snapshot -- <url> [<url2> ...]
+pnpm run tomarkdown -- <file> [<file2> ...]
+pnpm run status -- <jobId>
+pnpm run download -- <jobId> [--format json|jsonl]
+pnpm run jobs
 ```
 
 ## Output
@@ -282,14 +287,14 @@ Results are written to `output/` with timestamped names:
 ## Build and Development
 
 ```bash
-npm run build                # compile TypeScript to dist/
+pnpm run build                # compile TypeScript to dist/
 node dist/index.js --help    # run the compiled CLI
 
-npm test
-npm run typecheck
-npm run lint
-npm run format
-npm run format:check
+pnpm test
+pnpm run typecheck
+pnpm run lint
+pnpm run format
+pnpm run format:check
 ```
 
 ## Shell Scripts
