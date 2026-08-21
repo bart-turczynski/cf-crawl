@@ -12,6 +12,9 @@ typed errors in `src/errors.ts`. The SIGINT handler in `src/cli.ts` is the one o
 
 Behavior changes update `CHANGELOG.md` alongside the code and tests.
 
+Verify with `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test` — the chain
+`.githooks/pre-push` and `.gitlab-ci.yml` both run.
+
 For command usage and flags, see README.md.
 For module layout and runtime invariants, see docs/ARCHITECTURE.md.
 For agent-facing command selection and cost guidance, see skill.md.
