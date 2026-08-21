@@ -1,5 +1,6 @@
-# Port of .github/workflows/verify.yml. Kept as a single fail-fast job so the
-# step order and the one dependency install match the GitHub workflow.
+# The project's verify gate. Ported from a GitHub Actions workflow that never
+# ran here (origin is GitLab) and has since been removed. Kept as a single
+# fail-fast job: one dependency install, steps in cheapest-first order.
 
 stages:
   - verify
