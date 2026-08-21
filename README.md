@@ -1,5 +1,8 @@
 # cf-crawl
 
+[![pipeline](https://gitlab.com/bart-turczynski/cf-crawl/badges/master/pipeline.svg)](https://gitlab.com/bart-turczynski/cf-crawl/-/pipelines)
+[![coverage](https://gitlab.com/bart-turczynski/cf-crawl/badges/master/coverage.svg)](https://gitlab.com/bart-turczynski/cf-crawl/-/pipelines)
+
 Crawl sites, scrape pages, render PDFs and screenshots, extract structured JSON, and convert local files to markdown using the [Cloudflare Browser Rendering API](https://developers.cloudflare.com/browser-rendering/).
 
 The CLI supports three broad workflows:
