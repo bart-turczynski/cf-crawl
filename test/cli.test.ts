@@ -49,6 +49,7 @@ vi.mock("../src/commands/pdf.js", () => ({ pdf: vi.fn() }));
 vi.mock("../src/commands/screenshot.js", () => ({ screenshot: vi.fn() }));
 vi.mock("../src/commands/snapshot.js", () => ({ snapshot: vi.fn() }));
 vi.mock("../src/commands/tomarkdown.js", () => ({ tomarkdown: vi.fn() }));
+vi.mock("../src/commands/export.js", () => ({ exportCsv: vi.fn() }));
 
 vi.mock("../src/job-log.js", () => ({
   updateJobLog: vi.fn(() => Promise.resolve()),
@@ -441,6 +442,66 @@ describe("cli", () => {
       const { main } = await import("../src/cli.js");
       await main();
       expect(tomarkdown).toHaveBeenCalledWith(["./report.pdf", "./notes.docx"]);
+    });
+
+    it("export passes the input path and parsed options through", async () => {
+      const { exportCsv } = (await import("../src/commands/export.js")) as { exportCsv: Mock };
+      exportCsv.mockResolvedValue({ outputPath: "out.csv", rowCount: 0, skipped: 0, malformed: 0 });
+      process.argv = [
+        "node",
+        "index.js",
+        "export",
+        "output/crawl.jsonl",
+        "--status",
+        "errored",
+        "--status",
+        "queued",
+        "--out",
+        "retry.csv",
+      ];
+      const { main } = await import("../src/cli.js");
+
+      await main();
+
+      expect(exportCsv).toHaveBeenCalledWith("output/crawl.jsonl", {
+        out: "retry.csv",
+        statuses: ["errored", "queued"],
+      });
+    });
+
+    it("export does not URL-normalize its file positional", async () => {
+      const { exportCsv } = (await import("../src/commands/export.js")) as { exportCsv: Mock };
+      exportCsv.mockResolvedValue({ outputPath: "out.csv", rowCount: 0, skipped: 0, malformed: 0 });
+      process.argv = ["node", "index.js", "export", "./crawl.jsonl"];
+      const { main } = await import("../src/cli.js");
+
+      await main();
+
+      expect(exportCsv).toHaveBeenCalledWith("./crawl.jsonl", {});
+    });
+
+    it("export throws a usage error when no file is provided", async () => {
+      process.argv = ["node", "index.js", "export"];
+      const { main } = await import("../src/cli.js");
+
+      await expect(main()).rejects.toThrow(/at least one file path is required/);
+    });
+
+    it("export runs without Cloudflare credentials", async () => {
+      const { validateEnv } = (await import("../src/config.js")) as { validateEnv: Mock };
+      validateEnv.mockImplementation(() => {
+        throw new ConfigError("Missing CF_ACCOUNT_ID or CF_API_TOKEN in .env");
+      });
+      const { exportCsv } = (await import("../src/commands/export.js")) as { exportCsv: Mock };
+      exportCsv.mockResolvedValue({ outputPath: "out.csv", rowCount: 0, skipped: 0, malformed: 0 });
+
+      process.argv = ["node", "index.js", "export", "output/crawl.jsonl"];
+      const { main } = await import("../src/cli.js");
+
+      await main();
+
+      expect(validateEnv).not.toHaveBeenCalled();
+      expect(exportCsv).toHaveBeenCalled();
     });
 
     it("tomarkdown throws a usage error when no args are provided", async () => {

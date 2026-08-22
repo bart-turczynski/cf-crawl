@@ -19,6 +19,7 @@ import { pdf } from "./commands/pdf.js";
 import { screenshot } from "./commands/screenshot.js";
 import { snapshot } from "./commands/snapshot.js";
 import { tomarkdown } from "./commands/tomarkdown.js";
+import { exportCsv } from "./commands/export.js";
 import { updateJobLog } from "./job-log.js";
 import type {
   Flags,
@@ -32,6 +33,7 @@ import type {
   ScreenshotFormat,
   SelectorSpec,
   WaitUntilEvent,
+  ExportOptions,
 } from "./types.js";
 
 interface ExecutionContext {
@@ -42,6 +44,8 @@ interface ExecutionContext {
 
 interface CommandSpec {
   run(args: ParsedArgs, context: ExecutionContext): Promise<void>;
+  /** Commands that never call Cloudflare skip the credential check. Defaults to true. */
+  requiresEnv?: boolean;
 }
 
 const OUTPUT_FORMATS = new Set<OutputFormat>(["json", "jsonl"]);
@@ -70,6 +74,7 @@ const USAGE = {
   screenshot: `node index.js screenshot <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT} [--full-page] [--format png|jpeg|webp]`,
   snapshot: `node index.js snapshot <url> [url2 ...] ${URL_INPUT_HINT} ${CONCURRENCY_HINT}`,
   tomarkdown: "node index.js tomarkdown <file> [file2 ...]",
+  export: "node index.js export <file.json|file.jsonl> [--out <path>] [--status <s> ...]",
 } as const;
 
 function createExecutionContext(): ExecutionContext {
@@ -122,7 +127,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     } else if (args[i].startsWith("--")) {
       const key = args[i].slice(2);
       const numericFlags = new Set(["limit", "max_depth", "wait", "concurrency"]);
-      const repeatableFlags = new Set(["selector", "include-pattern", "exclude-pattern"]);
+      const repeatableFlags = new Set(["selector", "include-pattern", "exclude-pattern", "status"]);
       const next = args[i + 1];
       if (next && !next.startsWith("--")) {
         if (repeatableFlags.has(key)) {
@@ -156,6 +161,7 @@ Usage:
   node index.js screenshot <url> [url2 ...] [opts]     Capture page screenshot(s) (sync, binary)
   node index.js snapshot <url> [url2 ...]              Capture HTML + screenshot in one call
   node index.js tomarkdown <file> [file2 ...]          Convert local file(s) to markdown (Workers AI)
+  node index.js export <file> [options]                Convert a saved crawl file to CSV (local, no API)
   node index.js status <jobId>                         Check crawl job status
   node index.js download <jobId>                       Download results for a job
   node index.js jobs                                   List all logged jobs
@@ -206,6 +212,15 @@ Markdown options:
   --ua STRING      Override the default browser User-Agent string
   --cookies JSON   JSON array of cookies, each {"name","value","domain"}
 
+Export options (local files, no Cloudflare credentials needed):
+  --out <path>     Destination CSV path (default: the input path with a .csv extension)
+  --status <s>     Keep only records with this crawl status. Repeatable.
+                   Values seen in crawl output: completed, errored, skipped, queued.
+
+  Reads a .json or .jsonl file written by crawl or download and emits the columns
+  url,status,httpStatus,title,lastModified. JSONL input is streamed, so row order
+  follows the input and memory stays bounded on multi-GB dumps.
+
 Input file (all page commands):
   --input <file>   Read URLs from a text file (one per line; csv/tsv/txt all OK).
                    The first URL-like token on each line is taken; lines without one
@@ -231,6 +246,8 @@ Examples:
   node index.js screenshot https://example.com --full-page --format jpeg
   node index.js snapshot https://example.com
   node index.js tomarkdown ./report.pdf ./notes.docx
+  node index.js export output/crawl_example.com_abc123.jsonl
+  node index.js export output/crawl.jsonl --status errored --out retry.csv
   `);
 }
 
@@ -434,6 +451,29 @@ function getLinksOptions(flags: Flags): LinksOptions {
   const options: LinksOptions = {};
   if (flags["visible-only"]) options.visibleLinksOnly = true;
   if (flags["exclude-external"]) options.excludeExternalLinks = true;
+  return options;
+}
+
+function getExportOptions(flags: Flags): ExportOptions {
+  const options: ExportOptions = {};
+
+  if (flags.out != null) {
+    if (typeof flags.out !== "string" || flags.out.trim().length === 0) {
+      failUsage("--out requires a file path.", USAGE.export);
+    }
+    options.out = flags.out.trim();
+  }
+
+  const raw = flags.status;
+  if (raw != null) {
+    const list = Array.isArray(raw) ? raw : [raw];
+    const statuses = list.map((value) => (typeof value === "string" ? value.trim() : ""));
+    if (statuses.some((value) => value.length === 0)) {
+      failUsage("--status requires a non-empty crawl status.", USAGE.export);
+    }
+    options.statuses = statuses;
+  }
+
   return options;
 }
 
@@ -642,6 +682,12 @@ const COMMANDS: Record<string, CommandSpec> = {
       await tomarkdown(requireFilePaths(positionals, USAGE.tomarkdown));
     },
   },
+  export: {
+    requiresEnv: false,
+    async run({ flags, positionals }): Promise<void> {
+      await exportCsv(requireFilePaths(positionals, USAGE.export)[0], getExportOptions(flags));
+    },
+  },
 };
 
 export async function main(argv: string[] = process.argv): Promise<void> {
@@ -658,7 +704,7 @@ export async function main(argv: string[] = process.argv): Promise<void> {
     return;
   }
 
-  validateEnv();
+  if (command.requiresEnv !== false) validateEnv();
   const context = createExecutionContext();
 
   try {

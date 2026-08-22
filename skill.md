@@ -30,12 +30,15 @@ Pick the command that matches the user's intent:
 | Check crawl progress                                                                 | `status`     |
 | Download crawl results                                                               | `download`   |
 | List locally tracked crawl jobs                                                      | `jobs`       |
+| Turn a saved crawl result file into CSV (local, no API call)                         | `export`     |
 
 Pick `markdown` when the user wants **clean readable content** ("get the article text", "save these pages as markdown", "scrape output is too messy"). Pick `scrape` when the user wants **structured element counts / specific selectors**. Pick `content` when the user needs **raw rendered HTML**.
 
 `markdown` and `scrape` accept `--headers '{"Name":"value"}'`, `--ua "<UA>"`, and `--cookies '[{"name","value","domain"}]'` (each a single JSON-encoded arg). Use these when a target site geo-routes on Cloudflare Browser Rendering's egress IP and you need to force a locale, impersonate a real browser UA, or set a bypass cookie. Example: `zendesk.com` returns German content from the default BR egress but English when you pass `Accept-Language: en-US` + `Cookie: georedirect=false`.
 
 `tomarkdown` accepts local files only and rejects live `http(s)` URLs. For live webpages, use `markdown`.
+
+`export` is the only command that costs nothing and needs no credentials — it reads a `.json`/`.jsonl` file that `crawl` or `download` already wrote and emits `url,status,httpStatus,title,lastModified`. Reach for it instead of re-crawling when the user wants a URL list, a title inventory, or a retry list from a crawl that already ran: `export <file> --status errored --out retry.csv`, then `crawl --input retry.csv`. JSONL input is streamed, so multi-GB dumps are safe.
 
 ## Important Flags
 
