@@ -25,6 +25,7 @@
     "screenshot": "tsx index.ts screenshot",
     "snapshot": "tsx index.ts snapshot",
     "tomarkdown": "tsx index.ts tomarkdown",
+    "export": "tsx index.ts export",
     "status": "tsx index.ts status",
     "download": "tsx index.ts download",
     "jobs": "tsx index.ts jobs",

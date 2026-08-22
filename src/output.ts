@@ -120,7 +120,7 @@ function waitForDrain(ws: WriteStream): Promise<void> {
 }
 
 /** Write a string to a stream, awaiting drain if backpressured. */
-async function streamWrite(ws: WriteStream, chunk: string): Promise<void> {
+export async function streamWrite(ws: WriteStream, chunk: string): Promise<void> {
   const ok = ws.write(chunk);
   if (!ok) await waitForDrain(ws);
 }

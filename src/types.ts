@@ -96,6 +96,21 @@ export interface CrawlResult {
 
 export interface CrawlRecord {
   url: string;
+  metadata?: CrawlRecordMetadata;
+  [key: string]: unknown;
+}
+
+/**
+ * Per-page metadata on a crawl record. Note the two distinct statuses:
+ * `CrawlRecord.status` is the crawl outcome (`completed`, `errored`,
+ * `skipped`, `queued`) while `CrawlRecordMetadata.status` is the HTTP
+ * response code.
+ */
+export interface CrawlRecordMetadata {
+  status?: number;
+  title?: string;
+  url?: string;
+  lastModified?: string;
   [key: string]: unknown;
 }
 
@@ -157,6 +172,22 @@ export interface CrawlOptions {
 
 export interface DownloadOptions {
   format?: OutputFormat;
+}
+
+export interface ExportOptions {
+  /** Destination CSV path. Defaults to the input path with a `.csv` extension. */
+  out?: string;
+  /** When non-empty, keep only records whose crawl `status` is in this list. */
+  statuses?: string[];
+}
+
+export interface ExportSummary {
+  outputPath: string;
+  rowCount: number;
+  /** Records dropped by the `statuses` filter. */
+  skipped: number;
+  /** JSONL lines that failed to parse and were skipped. */
+  malformed: number;
 }
 
 export interface CollectResultSummary {

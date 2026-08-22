@@ -244,6 +244,33 @@ Parsing rules:
 - Positional URLs are processed first, then file URLs.
 - `tomarkdown` does not accept `--input` — it takes local file paths, not URLs.
 
+### Export crawl results to CSV (`export`)
+
+```bash
+npx tsx index.ts export <file.json|file.jsonl> [--out <path>] [--status <s> ...]
+```
+
+Converts a crawl result file already on disk into a CSV with the columns `url,status,httpStatus,title,lastModified`. This runs entirely against local files — it makes no Cloudflare API call and needs no credentials in `.env`.
+
+```bash
+# Whole crawl -> output/crawl_example.com_abc123.csv
+npx tsx index.ts export output/crawl_example.com_abc123.jsonl
+
+# Just the failures, as a retry list
+npx tsx index.ts export output/crawl_example.com_abc123.jsonl --status errored --out retry.csv
+npx tsx index.ts crawl --input retry.csv
+```
+
+Notes:
+
+- Accepts `.jsonl` and `.json` — either format `crawl` and `download` write.
+- `status` is the crawl outcome (`completed`, `errored`, `skipped`, `queued`); `httpStatus` is the HTTP response code from `metadata.status`.
+- `--status` is repeatable and filters on the crawl outcome: `--status errored --status queued`.
+- `--out` defaults to the input path with its extension swapped for `.csv`.
+- JSONL input is streamed, so row order follows the input and memory stays bounded. A 5.4 GB / 18,404-record crawl exports in about 22 s using ~275 MB of RSS.
+- Unparsable JSONL lines are skipped and counted rather than aborting the export.
+- The output feeds straight back into `--input`, which skips the header row automatically.
+
 ### Convert local files to markdown
 
 ```bash
