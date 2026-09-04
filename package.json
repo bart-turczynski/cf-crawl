@@ -4,7 +4,7 @@
   "engines": {
     "node": ">=22"
   },
-  "version": "1.0.0",
+  "version": "4.0.0",
   "description": "Crawl and scrape websites using the Cloudflare Browser Rendering API",
   "type": "module",
   "main": "dist/index.js",
