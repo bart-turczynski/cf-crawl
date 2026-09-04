@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- MIT `LICENSE` file, and a matching `"license": "MIT"` field in `package.json`. The repository is public and ships a `bin`, but carried no license at all, which left its terms undefined for anyone who cloned it and would have drawn a warning from `npm publish`. MIT is OSI-approved, so this also satisfies the licensing bar for GitLab for Open Source, should the CI minute allowance ever be worth applying for.
+- A GitLab Release for `v4.0.0` at `/-/releases/v4.0.0`, with curated notes leading on the `scrape` breaking change. The tag alone produced no Releases page entry.
+
 ## [4.0.0] - 2026-09-04
 
 ### Added

@@ -6,6 +6,7 @@
   },
   "version": "4.0.0",
   "description": "Crawl and scrape websites using the Cloudflare Browser Rendering API",
+  "license": "MIT",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
