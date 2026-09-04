@@ -24,9 +24,9 @@ mkdir -p ~/.claude/skills/cf-crawl
 ln -sf "$(git rev-parse --show-toplevel)/skill.md" ~/.claude/skills/cf-crawl/SKILL.md
 ```
 
-Enable the local verify gate. GitLab CI runs the same chain, but only when the
-namespace has CI/CD minutes available, so this hook is what actually blocks a
-broken push today:
+Enable the local verify gate. GitLab CI runs the same chain on merge requests
+and on `master`, but it runs on the namespace's Free-tier CI/CD minutes, which
+can run out mid-month; this hook is what blocks a broken push either way:
 
 ```bash
 git config core.hooksPath .githooks
