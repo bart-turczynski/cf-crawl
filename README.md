@@ -24,9 +24,10 @@ mkdir -p ~/.claude/skills/cf-crawl
 ln -sf "$(git rev-parse --show-toplevel)/skill.md" ~/.claude/skills/cf-crawl/SKILL.md
 ```
 
-Enable the local verify gate. GitLab CI runs the same chain on merge requests
-and on `master`, but it runs on the namespace's Free-tier CI/CD minutes, which
-can run out mid-month; this hook is what blocks a broken push either way:
+Enable the local verify gate. This hook is the gate for everyday work: GitLab
+CI runs the same chain, but only for a version tag (`v1.2.3`) or an explicit
+on-demand run, so that the namespace's Free-tier CI/CD minutes are only spent
+deliberately. Ordinary pushes and merge requests create no pipeline at all.
 
 ```bash
 git config core.hooksPath .githooks
@@ -34,6 +35,11 @@ git config core.hooksPath .githooks
 
 `.githooks/pre-push` runs typecheck, lint, format check, and tests before every push.
 Bypass a single push with `git push --no-verify`.
+
+To run the CI pipeline on demand, use **CI/CD -> Pipelines -> Run pipeline** in
+GitLab, or `glab ci run --branch <branch>`. The status badges above reflect the
+last pipeline that ran on `master`, which is now only as recent as the last
+deliberate run.
 
 You need:
 

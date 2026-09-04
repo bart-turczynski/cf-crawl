@@ -2,6 +2,18 @@
 # ran here (origin is GitLab) and has since been removed. Kept as a single
 # fail-fast job: one dependency install, steps in cheapest-first order.
 
+# The namespace runs on Free-tier CI/CD minutes, so pipelines are only created
+# deliberately: for a version tag, or for an explicit on-demand run. Ordinary
+# pushes and merge requests create no pipeline at all and cost nothing.
+# `.githooks/pre-push` is the gate for everyday work — enable it per clone with
+# `git config core.hooksPath .githooks`.
+workflow:
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+/
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_PIPELINE_SOURCE == "api"
+    - when: never
+
 stages:
   - verify
 
@@ -49,6 +61,3 @@ verify:
       coverage_report:
         coverage_format: cobertura
         path: coverage/cobertura-coverage.xml
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
