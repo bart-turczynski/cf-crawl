@@ -2,5 +2,10 @@ dist/
 output/
 node_modules/
 
+# CI sets PNPM_STORE_DIR to a path inside the working directory so GitLab can
+# cache it. The store holds third-party executables whose shebang makes
+# Prettier infer a parser, so it must be ignored or format:check fails in CI.
+.pnpm-store/
+
 # Auto-generated, not prettier-formatted
 pnpm-lock.yaml
