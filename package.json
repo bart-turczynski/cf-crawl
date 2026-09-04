@@ -12,8 +12,14 @@
   "bin": {
     "cf-crawl": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "CHANGELOG.md",
+    "skill.md"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepack": "pnpm run build",
     "dev": "tsx index.ts",
     "crawl": "tsx index.ts crawl",
     "crawl:render": "tsx index.ts crawl --render",

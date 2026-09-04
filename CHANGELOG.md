@@ -9,6 +9,11 @@ All notable changes to this project will be documented in this file.
 - MIT `LICENSE` file, and a matching `"license": "MIT"` field in `package.json`. The repository is public and ships a `bin`, but carried no license at all, which left its terms undefined for anyone who cloned it and would have drawn a warning from `npm publish`. MIT is OSI-approved, so this also satisfies the licensing bar for GitLab for Open Source, should the CI minute allowance ever be worth applying for.
 - A GitLab Release for `v4.0.0` at `/-/releases/v4.0.0`, with curated notes leading on the `scrape` breaking change. The tag alone produced no Releases page entry.
 
+### Changed
+
+- `package.json` gained a `files` allowlist (`dist`, `CHANGELOG.md`, `skill.md`; npm adds `package.json`, `README.md` and `LICENSE` itself), cutting the packed tarball from 159 files to 105. Without it the published package would have carried `src/`, `test/`, both tsconfigs, `vitest.config.ts`, `eslint.config.js`, `scripts/`, `.githooks/`, `.gitlab-ci.yml`, `.env.example` and the agent instruction files — none of which a consumer can use.
+- New `prepack` script runs `pnpm run build` before packing. `dist/` is gitignored but is the target of both `main` and `bin`, so publishing from a clean checkout would otherwise have shipped a package whose entry point did not exist. Verified by deleting `dist/` and packing: the tarball still contained all 100 build outputs, and installing it into a scratch project produced a working `cf-crawl` binary that ran `export` with no repository and no credentials.
+
 ## [4.0.0] - 2026-09-04
 
 ### Added
