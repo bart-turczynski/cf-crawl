@@ -14,6 +14,14 @@ All notable changes to this project will be documented in this file.
 - `package.json` gained a `files` allowlist (`dist`, `CHANGELOG.md`, `skill.md`; npm adds `package.json`, `README.md` and `LICENSE` itself), cutting the packed tarball from 159 files to 105. Without it the published package would have carried `src/`, `test/`, both tsconfigs, `vitest.config.ts`, `eslint.config.js`, `scripts/`, `.githooks/`, `.gitlab-ci.yml`, `.env.example` and the agent instruction files — none of which a consumer can use.
 - New `prepack` script runs `pnpm run build` before packing. `dist/` is gitignored but is the target of both `main` and `bin`, so publishing from a clean checkout would otherwise have shipped a package whose entry point did not exist. Verified by deleting `dist/` and packing: the tarball still contained all 100 build outputs, and installing it into a scratch project produced a working `cf-crawl` binary that ran `export` with no repository and no credentials.
 
+### Added
+
+- README's Setup section now opens with the `git clone` command naming the GitLab URL. Nothing in the repository told a reader where to clone from, which is precisely how a collaborator ended up on an abandoned mirror and spent a session syncing a tree that predated v4.0.0. The status badges and the `repository` field imply the origin but neither is a copyable first step.
+
+### Changed
+
+- README no longer attributes corepack's absence solely to Node unbundling it. Homebrew's `node` formula links only `npm` and `npx`, so corepack is missing there regardless of Node version — a Homebrew user on Node 22 hits the same wall as one on Node 25. The remedy was already correct; only the stated cause was too narrow. Reported by Robert Araczyńska from a Homebrew Node 25.9.0 install.
+
 ### Fixed
 
 - The pnpm install instructions added in the previous two entries told the reader to run `corepack enable && corepack prepare --activate`, which fails on a stock install: Corepack is no longer bundled with Node, and Homebrew's `node` formula links only `npm` and `npx`, so `corepack` is simply absent. The line was written from convention and never exercised — `command -v corepack` finds nothing on the maintainer's machine either. README and the `.githooks/pre-push` message now say `brew install pnpm` (or `npm install -g pnpm`), with corepack noted as a fallback for those who already have it. Any recent pnpm suffices: pnpm reads `packageManager` and self-manages to the pinned version in-repo, verified as `pnpm --version` reporting `11.1.1` inside the clone against `11.8.0` outside it, so the pin is honored without corepack. Reported by Robert Araczyńska, blocked on a Homebrew Node 25 install.
