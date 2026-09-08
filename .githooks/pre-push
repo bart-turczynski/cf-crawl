@@ -27,7 +27,7 @@ fi
 # abort on a bare "command not found", which reads like a failing gate.
 if ! command -v pnpm >/dev/null 2>&1; then
   echo "pre-push: pnpm not found on PATH -- the verify chain needs it." >&2
-  echo "  Install it with:  corepack enable && corepack prepare --activate" >&2
+  echo "  Install it with:  brew install pnpm   (or: npm install -g pnpm)" >&2
   echo "  Then re-run the push, or bypass this hook with --no-verify." >&2
   exit 1
 fi
