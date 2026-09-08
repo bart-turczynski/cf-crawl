@@ -21,6 +21,17 @@ if [ "$only_deletes" -eq 1 ]; then
   exit 0
 fi
 
+# pnpm is the declared package manager (packageManager in package.json) and the
+# lockfile is pnpm's, so npm is not a substitute -- it would resolve a different
+# dependency tree than CI. Fail with the cause named rather than letting `set -e`
+# abort on a bare "command not found", which reads like a failing gate.
+if ! command -v pnpm >/dev/null 2>&1; then
+  echo "pre-push: pnpm not found on PATH -- the verify chain needs it." >&2
+  echo "  Install it with:  corepack enable && corepack prepare --activate" >&2
+  echo "  Then re-run the push, or bypass this hook with --no-verify." >&2
+  exit 1
+fi
+
 echo "pre-push: running verify chain (skip with --no-verify)"
 
 pnpm run typecheck
