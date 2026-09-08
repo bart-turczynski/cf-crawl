@@ -14,6 +14,10 @@ All notable changes to this project will be documented in this file.
 - `package.json` gained a `files` allowlist (`dist`, `CHANGELOG.md`, `skill.md`; npm adds `package.json`, `README.md` and `LICENSE` itself), cutting the packed tarball from 159 files to 105. Without it the published package would have carried `src/`, `test/`, both tsconfigs, `vitest.config.ts`, `eslint.config.js`, `scripts/`, `.githooks/`, `.gitlab-ci.yml`, `.env.example` and the agent instruction files — none of which a consumer can use.
 - New `prepack` script runs `pnpm run build` before packing. `dist/` is gitignored but is the target of both `main` and `bin`, so publishing from a clean checkout would otherwise have shipped a package whose entry point did not exist. Verified by deleting `dist/` and packing: the tarball still contained all 100 build outputs, and installing it into a scratch project produced a working `cf-crawl` binary that ran `export` with no repository and no credentials.
 
+### Changed
+
+- `git config core.hooksPath .githooks` moved into the main Setup code block instead of sitting in a second fence below a paragraph of prose. Both were fenced, but a reader who pastes the first block and moves on ends up with no verify gate and no indication of it — the failure is silent, and the hook is the only automated check on everyday work since ordinary pushes create no pipeline. The rationale stays below the block, rewritten so it explains rather than re-instructs.
+
 ### Added
 
 - README's Setup section now opens with the `git clone` command naming the GitLab URL. Nothing in the repository told a reader where to clone from, which is precisely how a collaborator ended up on an abandoned mirror and spent a session syncing a tree that predated v4.0.0. The status badges and the `repository` field imply the origin but neither is a copyable first step.

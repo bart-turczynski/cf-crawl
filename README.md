@@ -41,16 +41,17 @@ cp .env.example .env
 # Run from anywhere inside the clone; works on any machine/user.
 mkdir -p ~/.claude/skills/cf-crawl
 ln -sf "$(git rev-parse --show-toplevel)/skill.md" ~/.claude/skills/cf-crawl/SKILL.md
-```
 
-Enable the local verify gate. This hook is the gate for everyday work: GitLab
-CI runs the same chain, but only for a version tag (`v1.2.3`) or an explicit
-on-demand run, so that the namespace's Free-tier CI/CD minutes are only spent
-deliberately. Ordinary pushes and merge requests create no pipeline at all.
-
-```bash
+# Enable the local verify gate. Do not skip this one -- see below for why.
 git config core.hooksPath .githooks
 ```
+
+That last line is the setup step most worth understanding. The hook is the gate
+for everyday work: GitLab CI runs the same chain, but only for a version tag
+(`v1.2.3`) or an explicit on-demand run, so that the namespace's Free-tier CI/CD
+minutes are only spent deliberately. Ordinary pushes and merge requests create
+no pipeline at all, so without `core.hooksPath` set, nothing checks your work
+before it lands.
 
 `.githooks/pre-push` runs typecheck, lint, format check, and tests before every push.
 Bypass a single push with `git push --no-verify`.
