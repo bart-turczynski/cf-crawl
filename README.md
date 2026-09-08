@@ -13,6 +13,13 @@ The CLI supports three broad workflows:
 
 ## Setup
 
+Needs Node >= 22 and pnpm — the lockfile is pnpm's, so npm will resolve a
+different dependency tree than CI. pnpm ships with Node via corepack:
+
+```bash
+corepack enable && corepack prepare --activate
+```
+
 ```bash
 pnpm install
 cp .env.example .env
