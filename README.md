@@ -14,11 +14,17 @@ The CLI supports three broad workflows:
 ## Setup
 
 Needs Node >= 22 and pnpm — the lockfile is pnpm's, so npm will resolve a
-different dependency tree than CI. pnpm ships with Node via corepack:
+different dependency tree than CI. Corepack is no longer bundled with Node, so
+install pnpm directly:
 
 ```bash
-corepack enable && corepack prepare --activate
+brew install pnpm          # or: npm install -g pnpm
 ```
+
+Any recent pnpm will do. It reads `packageManager` from `package.json` and
+self-manages to the pinned version inside this repo, so `pnpm --version` reports
+`11.1.1` here regardless of which version you installed. If you already have
+corepack, `corepack enable` works too.
 
 ```bash
 pnpm install
