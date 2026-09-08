@@ -14,6 +14,10 @@ All notable changes to this project will be documented in this file.
 - `package.json` gained a `files` allowlist (`dist`, `CHANGELOG.md`, `skill.md`; npm adds `package.json`, `README.md` and `LICENSE` itself), cutting the packed tarball from 159 files to 105. Without it the published package would have carried `src/`, `test/`, both tsconfigs, `vitest.config.ts`, `eslint.config.js`, `scripts/`, `.githooks/`, `.gitlab-ci.yml`, `.env.example` and the agent instruction files — none of which a consumer can use.
 - New `prepack` script runs `pnpm run build` before packing. `dist/` is gitignored but is the target of both `main` and `bin`, so publishing from a clean checkout would otherwise have shipped a package whose entry point did not exist. Verified by deleting `dist/` and packing: the tarball still contained all 100 build outputs, and installing it into a scratch project produced a working `cf-crawl` binary that ran `export` with no repository and no credentials.
 
+### Fixed
+
+- `screenshot --full-page` sent `fullPage` at the top level of the `/screenshot` request body, which Cloudflare Browser Rendering rejects outright (`ApiError: Unrecognized key: "fullPage"`, code 7001) — the flag never worked and the whole request failed, so no image was written. `fullPage` belongs inside `screenshotOptions` (a Puppeteer `ScreenshotOptions` object), where `--format` was already being sent correctly. Both flags are now built into a single `screenshotOptions` object, which also fixes the latent second bug: the old `body.screenshotOptions = { type: format }` assignment would have overwritten a sibling `fullPage`, so `--full-page --format jpeg` could not have worked even with the nesting corrected. `screenshotOptions` is omitted entirely when neither flag is set, so a plain `screenshot` sends the same body as before. New `test/screenshot.test.ts` covers the request-body construction — the gap that let this ship, since `test/cli.test.ts` mocks `screenshot()` and only asserts the CLI forwards the flags, never exercising the payload.
+
 ## [4.0.0] - 2026-09-04
 
 ### Added

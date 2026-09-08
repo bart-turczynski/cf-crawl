@@ -19,8 +19,10 @@ export async function screenshot(
   console.log(`  format: ${format}\n`);
 
   const body: Record<string, unknown> = { url };
-  if (opts.fullPage) body.fullPage = true;
-  if (format !== "png") body.screenshotOptions = { type: format };
+  const screenshotOptions: Record<string, unknown> = {};
+  if (opts.fullPage) screenshotOptions.fullPage = true;
+  if (format !== "png") screenshotOptions.type = format;
+  if (Object.keys(screenshotOptions).length > 0) body.screenshotOptions = screenshotOptions;
 
   const { result } = await cfFetchBinary("/screenshot", {
     method: "POST",
