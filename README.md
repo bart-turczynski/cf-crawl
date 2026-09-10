@@ -37,10 +37,11 @@ pnpm install
 cp .env.example .env
 # Fill in your Cloudflare credentials in .env
 
-# Install the Claude Code skill (symlink into your user-level skills dir).
+# Install the Claude Code skill: link the skill/ directory itself, not a file
+# inside it, so anything added beside SKILL.md is served with it.
 # Run from anywhere inside the clone; works on any machine/user.
-mkdir -p ~/.claude/skills/cf-crawl
-ln -sf "$(git rev-parse --show-toplevel)/skill.md" ~/.claude/skills/cf-crawl/SKILL.md
+mkdir -p ~/.claude/skills
+ln -s "$(git rev-parse --show-toplevel)/skill" ~/.claude/skills/cf-crawl
 
 # Enable the local verify gate. Do not skip this one -- see below for why.
 git config core.hooksPath .githooks

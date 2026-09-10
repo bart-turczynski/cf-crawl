@@ -23,7 +23,7 @@
   "files": [
     "dist",
     "CHANGELOG.md",
-    "skill.md"
+    "skill"
   ],
   "scripts": {
     "build": "tsc",
