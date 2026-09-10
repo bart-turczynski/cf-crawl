@@ -37,15 +37,37 @@ pnpm install
 cp .env.example .env
 # Fill in your Cloudflare credentials in .env
 
-# Install the Claude Code skill: link the skill/ directory itself, not a file
-# inside it, so anything added beside SKILL.md is served with it.
-# Run from anywhere inside the clone; works on any machine/user.
-mkdir -p ~/.claude/skills
-ln -s "$(git rev-parse --show-toplevel)/skill" ~/.claude/skills/cf-crawl
+# Install the Claude Code skill (symlinks skill/ into your user-level skills
+# dir). Run from anywhere inside the clone; works on any machine and user, and
+# is safe to re-run.
+./scripts/install-skill.sh
 
 # Enable the local verify gate. Do not skip this one -- see below for why.
 git config core.hooksPath .githooks
 ```
+
+`install-skill.sh` links the `skill/` **directory**, so anything added beside
+`SKILL.md` — a `references/` file, say — is served with it. Re-running it is
+safe: an already-correct link is left alone.
+
+### Upgrading an install made before `skill/`
+
+Earlier versions installed the skill by symlinking the root `skill.md` to a
+path _inside_ a hand-made directory:
+
+```text
+~/.claude/skills/cf-crawl/SKILL.md -> <repo>/skill.md
+```
+
+`git pull` alone leaves that install broken and silent — `skill.md` is gone, so
+the link dangles and the skill simply stops appearing, with no error to explain
+it. **Run `./scripts/install-skill.sh` after pulling** and it recognises that
+directory, removes it, and links `skill/` in its place.
+
+Do not do it by hand with `ln -s`: against the old directory the link lands
+inside it as `~/.claude/skills/cf-crawl/skill`, reports success, and changes
+nothing about the breakage. The script exists for that one trap. It refuses,
+rather than deletes, anything at that path it did not install.
 
 That last line is the setup step most worth understanding. The hook is the gate
 for everyday work: GitLab CI runs the same chain, but only for a version tag
