@@ -17,4 +17,5 @@ Verify with `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test` — 
 
 For command usage and flags, see README.md.
 For module layout and runtime invariants, see docs/ARCHITECTURE.md.
-For agent-facing command selection and cost guidance, see skill.md.
+For agent-facing command selection and cost guidance, see skill/SKILL.md — the whole
+of what Claude sees, and what `~/.claude/skills/cf-crawl` links.
