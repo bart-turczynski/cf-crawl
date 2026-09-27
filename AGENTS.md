@@ -12,6 +12,9 @@ typed errors in `src/errors.ts`. The SIGINT handler in `src/cli.ts` is the one o
 
 Behavior changes update `CHANGELOG.md` alongside the code and tests.
 
+GitLab is the source of truth. GitHub carries a read-only push mirror with Actions off: add no
+`.github/workflows/`, and never push there. Setup: seor `design/github-mirror.md`.
+
 Verify with `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test` — the chain
 `.githooks/pre-push` and `.gitlab-ci.yml` both run.
 
