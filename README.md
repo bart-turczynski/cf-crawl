@@ -2,6 +2,7 @@
 
 [![pipeline](https://gitlab.com/bart-turczynski/cf-crawl/badges/master/pipeline.svg)](https://gitlab.com/bart-turczynski/cf-crawl/-/pipelines)
 [![coverage](https://gitlab.com/bart-turczynski/cf-crawl/badges/master/coverage.svg)](https://gitlab.com/bart-turczynski/cf-crawl/-/pipelines)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23305244.svg)](https://doi.org/10.5281/zenodo.23305244)
 
 Crawl sites, scrape pages, render PDFs and screenshots, extract structured JSON, and convert local files to markdown using the [Cloudflare Browser Rendering API](https://developers.cloudflare.com/browser-rendering/).
 
@@ -396,3 +397,14 @@ Standalone bash equivalents remain in `scripts/` for quick one-off reference run
 ```
 
 They are not kept at full feature parity with the TypeScript CLI.
+
+## Citation
+
+If you use `cf-crawl` in your work, please cite it; see
+[`CITATION.cff`](https://gitlab.com/bart-turczynski/cf-crawl/-/blob/master/CITATION.cff).
+
+Each release is archived on Zenodo. Cite the concept DOI
+[10.5281/zenodo.23305244](https://doi.org/10.5281/zenodo.23305244) to refer to
+`cf-crawl` in general; it always resolves to the latest release. Use the
+version-specific DOI shown on the [Zenodo record](https://doi.org/10.5281/zenodo.23305244)
+for a particular release.
