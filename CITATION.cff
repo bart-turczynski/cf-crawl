@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 type: software
 title: "cf-crawl: Crawl and Scrape Websites with the Cloudflare Browser Rendering API"
-version: 4.0.0
-date-released: "2026-09-04"
+version: 4.1.0
+date-released: "2026-10-11"
 abstract: >-
   A TypeScript command-line tool over the Cloudflare Browser Rendering API and
   Workers AI tomarkdown. It runs asynchronous site crawls; synchronous

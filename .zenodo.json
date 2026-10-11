@@ -1,7 +1,7 @@
 {
   "upload_type": "software",
   "title": "cf-crawl: Crawl and Scrape Websites with the Cloudflare Browser Rendering API",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "language": "eng",
   "access_right": "open",
   "license": "MIT",

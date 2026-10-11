@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-10-11
+
 ### Added
 
 - `CITATION.cff` and `.zenodo.json`, ahead of the first Zenodo archive. Zenodo's GitHub integration is on for the GitHub mirror, so a GitHub Release mints a permanent DOI from whatever metadata the tagged commit carries; without these files Zenodo would fall back to the GitHub repository page, and a published record can be deleted by its owner only within 30 days, and after that only by Zenodo support. `v4.0.0` predates the files and gets no GitHub Release. No DOI is cited yet: one goes in only once doi.org resolves it.
