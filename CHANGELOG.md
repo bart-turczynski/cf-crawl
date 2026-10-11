@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- Zenodo DOIs for the 4.1.0 archive, the first: concept DOI `10.5281/zenodo.23305244` (resolves to the latest release) and version DOI `10.5281/zenodo.23305245`, recorded in `CITATION.cff` and as a README badge and Citation section. Added only after doi.org resolved both.
+
 ## [4.1.0] - 2026-10-11
 
 ### Added
