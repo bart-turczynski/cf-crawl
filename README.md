@@ -383,6 +383,7 @@ pnpm run typecheck
 pnpm run lint
 pnpm run format
 pnpm run format:check
+pnpm run citation:check        # CITATION.cff and .zenodo.json name package.json's version
 ```
 
 ## Shell Scripts

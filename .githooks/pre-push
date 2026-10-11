@@ -37,6 +37,7 @@ echo "pre-push: running verify chain (skip with --no-verify)"
 pnpm run typecheck
 pnpm run lint
 pnpm run format:check
+pnpm run citation:check
 pnpm run test
 
 echo "pre-push: verify chain passed"

@@ -37,6 +37,7 @@ verify:
     - pnpm run typecheck
     - pnpm run lint
     - pnpm run format:check
+    - pnpm run citation:check
     - pnpm run test
     - pnpm exec vitest run --coverage --coverage.reporter=text --coverage.reporter=lcovonly --coverage.reporter=cobertura
     # Codecov has no tokenless upload on GitLab, so this runs only when

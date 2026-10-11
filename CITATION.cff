@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+type: software
+title: "cf-crawl: Crawl and Scrape Websites with the Cloudflare Browser Rendering API"
+version: 4.0.0
+date-released: "2026-09-04"
+abstract: >-
+  A TypeScript command-line tool over the Cloudflare Browser Rendering API and
+  Workers AI tomarkdown. It runs asynchronous site crawls; synchronous
+  single-page operations that scrape elements, return markdown, rendered HTML,
+  links, structured JSON, PDFs, screenshots and snapshots; and conversion of
+  local files to markdown.
+authors:
+  - family-names: Turczynski
+    given-names: Bart
+    orcid: "https://orcid.org/0000-0002-8788-7980"
+repository-code: "https://gitlab.com/bart-turczynski/cf-crawl"
+url: "https://gitlab.com/bart-turczynski/cf-crawl"
+license: MIT
+keywords:
+  - Cloudflare
+  - Browser Rendering
+  - web crawling
+  - web scraping
+  - crawler
+  - CLI
+  - markdown
+  - PDF
+  - screenshot
+  - TypeScript
