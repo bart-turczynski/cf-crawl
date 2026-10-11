@@ -1,0 +1,47 @@
+{
+  "upload_type": "software",
+  "title": "cf-crawl: Crawl and Scrape Websites with the Cloudflare Browser Rendering API",
+  "version": "4.0.0",
+  "language": "eng",
+  "access_right": "open",
+  "license": "MIT",
+  "description": "<p>A TypeScript command-line tool over the Cloudflare Browser Rendering API and Workers AI <code>tomarkdown</code>. It runs asynchronous site crawls; synchronous single-page operations that scrape elements, return markdown, rendered HTML, links, structured JSON, PDFs, screenshots and snapshots; and conversion of local files to markdown.</p>",
+  "creators": [
+    {
+      "name": "Turczynski, Bart",
+      "orcid": "0000-0002-8788-7980"
+    }
+  ],
+  "keywords": [
+    "Cloudflare",
+    "Browser Rendering",
+    "web crawling",
+    "web scraping",
+    "crawler",
+    "CLI",
+    "markdown",
+    "PDF",
+    "screenshot",
+    "TypeScript"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://gitlab.com/bart-turczynski/cf-crawl",
+      "relation": "isSupplementTo",
+      "resource_type": "software",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://gitlab.com/bart-turczynski/cf-crawl/-/blob/master/README.md",
+      "relation": "isDocumentedBy",
+      "resource_type": "publication-softwaredocumentation",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://developers.cloudflare.com/browser-rendering/",
+      "relation": "requires",
+      "resource_type": "other",
+      "scheme": "url"
+    }
+  ]
+}

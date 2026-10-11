@@ -15,8 +15,14 @@ Behavior changes update `CHANGELOG.md` alongside the code and tests.
 GitLab is the source of truth. GitHub carries a read-only push mirror with Actions off: add no
 `.github/workflows/`, and never push there. Setup: seor `design/github-mirror.md`.
 
-Verify with `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm test` — the chain
-`.githooks/pre-push` and `.gitlab-ci.yml` both run.
+Verify with `pnpm typecheck`, `pnpm lint`, `pnpm format:check`, `pnpm citation:check`,
+`pnpm test` — the chain `.githooks/pre-push` and `.gitlab-ci.yml` both run.
+
+A release bumps `version` in `package.json`, `CITATION.cff` and `.zenodo.json` together, and
+`date-released` with them. The Zenodo DOI comes from the GitHub Release: seor
+`design/github-mirror.md` §5. Zenodo reads the tagged tree, so make a GitHub Release only for a
+tag whose tree carries both files: never for `v4.0.0`, which predates them.
+`scripts/check-citation-nonr.py` is vendored from seor; change it there, never here.
 
 For command usage and flags, see README.md.
 For module layout and runtime invariants, see docs/ARCHITECTURE.md.
