@@ -8,6 +8,12 @@ All notable changes to this project will be documented in this file.
 
 - Zenodo DOIs for the 4.1.0 archive, the first: concept DOI `10.5281/zenodo.23305244` (resolves to the latest release) and version DOI `10.5281/zenodo.23305245`, recorded in `CITATION.cff` and as a README badge and Citation section. Added only after doi.org resolved both.
 
+### Changed
+
+- **Node 26 is now the minimum**: `engines.node` moves from `>=22` to `>=26`, so a clone on Node 22–25 now falls outside the supported range and should upgrade Node before `pnpm install`. Node 22 left active LTS a year ago, and the CLI runs from a clone rather than from a registry, so no published consumer depends on the old floor.
+- `packageManager` pins pnpm 12.14.0 (was 11.1.1), with the lockfile refreshed within the declared major ranges. Any recent pnpm still self-manages to the pinned version inside the clone.
+- The GitLab CI `verify` job runs on `node:26` (was `node:22`). Node 26 no longer bundles corepack, so the job installs it from npm before `corepack enable`. Replayed locally in a `node:26` container: frozen install, typecheck, lint, format check, citation check and tests all pass.
+
 ## [4.1.0] - 2026-10-11
 
 ### Added

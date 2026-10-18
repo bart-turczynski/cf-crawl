@@ -19,7 +19,7 @@ git clone https://gitlab.com/bart-turczynski/cf-crawl.git
 cd cf-crawl
 ```
 
-Needs Node >= 22 and pnpm — the lockfile is pnpm's, so npm will resolve a
+Needs Node >= 26 and pnpm — the lockfile is pnpm's, so npm will resolve a
 different dependency tree than CI. Do not count on corepack being present: Node
 no longer bundles it, and Homebrew's `node` formula links only `npm` and `npx`,
 so it is absent there whatever the Node version. Install pnpm directly:
@@ -30,7 +30,7 @@ brew install pnpm          # or: npm install -g pnpm
 
 Any recent pnpm will do. It reads `packageManager` from `package.json` and
 self-manages to the pinned version inside this repo, so `pnpm --version` reports
-`11.1.1` here regardless of which version you installed. If you already have
+`12.14.0` here regardless of which version you installed. If you already have
 corepack, `corepack enable` works too.
 
 ```bash
