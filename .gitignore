@@ -14,4 +14,6 @@ coverage/
 .DS_Store
 
 # Fiberplane local issue tracking
-.fp/
+.fp/*
+!.fp/remote.toml
+
