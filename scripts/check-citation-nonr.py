@@ -95,15 +95,19 @@ from pathlib import Path
 # to behavior is caught. Bytes rather than a parse-tree hash, so the digest
 # does not move with the Python version running it.
 #
-# `main()` verifies it on every run, so it is armed in every copy whether or
-# not that repository runs `--self-test`. Whether the copies agree is one grep:
+# `main()` verifies it before every gate run, so it is armed in every copy
+# whether or not that repository runs `--self-test`; `--help` answers without
+# it, and `--self-test` checks it as one of its cases, so a drifted copy
+# still fails there after reporting every fixture. The self-test's failure
+# names the digest the file now has: that is the value to bless. Whether the
+# copies agree is one grep:
 #
 #     grep -h '^IMPLEMENTATION_DIGEST' ~/Projects/*/scripts/check-citation-nonr.py | sort -u
 #
 # One line out means every copy is in sync. Re-bless it in every copy in the
 # same change, never in one. It is a different digest from check-citation.py's
 # on purpose: the two scripts are re-blessed independently (ADR 0006).
-IMPLEMENTATION_DIGEST = "73ffec92ee64fe3b"
+IMPLEMENTATION_DIGEST = "873c7ef89644e906"
 
 
 SOURCES = ("package-json", "git-tag")
@@ -112,6 +116,8 @@ SOURCES = ("package-json", "git-tag")
 # block opener (`key:` with nothing after it, which starts a mapping or list).
 CFF_SCALAR = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):[ \t]+(.+?)[ \t]*$")
 CFF_KEY = re.compile(r"^([A-Za-z][A-Za-z0-9_-]*):")
+# Where a YAML comment starts after a value: whitespace, then `#`.
+CFF_COMMENT = re.compile(r"[ \t]+#")
 
 # The only tags that name a release. Anything else matching `v*` is ignored.
 RELEASE_TAG = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
@@ -232,8 +238,50 @@ def read_cff(path: Path) -> tuple[dict[str, str], set[str]]:
             keys.add(key_match.group(1))
         scalar = CFF_SCALAR.match(line)
         if scalar:
-            scalars[scalar.group(1)] = scalar.group(2).strip().strip("\"'")
+            value = cff_value(scalar.group(2))
+            if value is not None:
+                scalars[scalar.group(1)] = value
     return scalars, keys
+
+
+def cff_value(raw: str) -> str | None:
+    """A scalar's value as YAML reads it, or None if only a comment follows.
+
+    YAML starts a comment at a `#` preceded by whitespace, so an unquoted
+    `1.2.3 # current release` is `1.2.3`, while `10.5281/zenodo.1#x` keeps its
+    `#`. Inside quotes `#` is text. A quoted value that never closes, or is
+    followed by anything but a comment, is not this reader's shape; it is
+    returned unchanged, quotes and all, so the comparison fails rather than
+    guesses.
+    """
+    if raw.startswith("#"):
+        return None
+    if raw[0] in "\"'":
+        close = closing_quote(raw)
+        if close is not None:
+            rest = raw[close + 1 :]
+            if not rest or CFF_COMMENT.match(rest):
+                return raw[1:close]
+        return raw
+    return CFF_COMMENT.split(raw, maxsplit=1)[0]
+
+
+def closing_quote(raw: str) -> int | None:
+    """Where the quote opening `raw` closes, honoring YAML's escapes."""
+    quote = raw[0]
+    index = 1
+    while index < len(raw):
+        char = raw[index]
+        if quote == '"' and char == "\\":
+            index += 2
+            continue
+        if char == quote:
+            if quote == "'" and raw[index + 1 : index + 2] == "'":
+                index += 2
+                continue
+            return index
+        index += 1
+    return None
 
 
 def version_from_package_json(root: Path) -> tuple[str | None, str, list[str]]:
@@ -435,7 +483,7 @@ def self_test() -> list[str]:
     the report names them all in one run.
     """
     failures: list[str] = []
-    counts = {"positive": 0, "negative": 0}
+    counts = {"positive": 0, "negative": 0, "reader": 0, "cli": 0}
 
     def run(tag: str, source: str, **kwargs) -> list[str]:
         with tempfile.TemporaryDirectory() as tmp:
@@ -630,23 +678,111 @@ def self_test() -> list[str]:
         **_released("1.0.0"),
     )
 
+    # --- the CFF reader: YAML comments (SEOR-wjpiqjro) ---
+    # POSITIVE: a trailing comment is valid YAML and is not part of the version.
+    expect_clean(
+        "cff-trailing-comment",
+        "package-json",
+        package_json="1.2.3",
+        cff=(
+            "cff-version: 1.2.0 # schema\nversion: 1.2.3 # current release\n"
+            'date-released: "2026-09-29" # tagged that day\n'
+            "doi: 10.5281/zenodo.1\t# concept DOI\n"
+        ),
+        zenodo={"version": "1.2.3"},
+    )
+    # NEGATIVE: a key followed only by a comment holds no version.
+    expect_flagged(
+        "cff-comment-only",
+        "does not understand",
+        "package-json",
+        package_json="1.2.3",
+        cff="cff-version: 1.2.0\nversion: # set at release\n",
+        zenodo={"version": "1.2.3"},
+    )
+    # What the reader returns, field by field: YAML ends an unquoted scalar at
+    # a `#` preceded by whitespace, and nowhere else; inside quotes `#` is text.
+    reader_cases = (
+        ("version: 1.2.3 # current release", "version", "1.2.3"),
+        ('date-released: "2026-09-29" # tagged', "date-released", "2026-09-29"),
+        ("date-released: 2026-09-29 # tagged", "date-released", "2026-09-29"),
+        ("doi: 10.5281/zenodo.1\t# concept DOI", "doi", "10.5281/zenodo.1"),
+        ('version: "1.2.3 # not a comment"', "version", "1.2.3 # not a comment"),
+        ("version: '1.2.3 #4' # comment", "version", "1.2.3 #4"),
+        ("doi: 10.5281/zenodo.1#x", "doi", "10.5281/zenodo.1#x"),
+        # A malformed quoted scalar comes back as written, so it never equals
+        # a release: unclosed, closed by the other quote, or closed twice.
+        ('version: "1.2.3', "version", '"1.2.3'),
+        ("version: '1.2.3\"", "version", "'1.2.3\""),
+        ('version: "1.2.3""', "version", '"1.2.3""'),
+    )
+    for line, key, value in reader_cases:
+        counts["reader"] += 1
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "CITATION.cff"
+            path.write_text(f"cff-version: 1.2.0\n{line}\n", encoding="utf-8")
+            got = read_cff(path)[0].get(key)
+        if got != value:
+            failures.append(f"reader {line!r}: expected {value!r}, got {got!r}")
+
+    here = Path(__file__).resolve().read_text(encoding="utf-8")
+
+    # --- the command line of a drifted copy (SEOR-wjpiqjro) ---
+    # A copy whose digest has drifted still answers --help, and still fails
+    # the gate itself. Not --self-test: the copy would run this case again.
+    drifted_source = re.sub(
+        r'^IMPLEMENTATION_DIGEST = ".*"$',
+        'IMPLEMENTATION_DIGEST = "0000000000000000"',
+        here,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        drifted = Path(tmp) / "scripts" / "check-citation-nonr.py"
+        drifted.parent.mkdir()
+        drifted.write_text(drifted_source, encoding="utf-8")
+        for args, code, stream, needle in (
+            (["--help"], 0, "stdout", "usage:"),
+            (["--source", "git-tag"], 1, "stderr", "vendored copy drifted"),
+        ):
+            counts["cli"] += 1
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, str(drifted), *args],
+                capture_output=True,
+                text=True,
+                check=False,
+                env=git_env(),
+            )
+            if result.returncode != code or needle not in getattr(result, stream):
+                failures.append(
+                    f"drifted {' '.join(args)}: expected exit {code} and "
+                    f"{needle!r} on {stream}, got exit {result.returncode}, "
+                    f"stdout {result.stdout!r}, stderr {result.stderr!r}"
+                )
+
     # The vendored-copy digest (see IMPLEMENTATION_DIGEST). These cases prove
     # what it is FOR -- that it ignores prose and catches code -- rather than
     # only asserting that this copy matches today, which main() already does.
     # Built by position, not by replacing a phrase, as in check-citation.py.
-    here = Path(__file__).resolve().read_text(encoding="utf-8")
+    # Each edit is compared with the digest this file has now, not the one it
+    # records: --self-test runs before a drifted edit is blessed, and only
+    # vendor-untouched should fail then.
     lines = here.splitlines(keepends=True)
     end = module_docstring_end(here)
-    if implementation_digest(here) != IMPLEMENTATION_DIGEST:
-        failures.append("vendor-untouched: digest mismatch")
+    found = implementation_digest(here)
+    if found != IMPLEMENTATION_DIGEST:
+        failures.append(
+            f"vendor-untouched: implementation digest is {found}, "
+            f"IMPLEMENTATION_DIGEST records {IMPLEMENTATION_DIGEST}"
+        )
     if end == 0:
         failures.append("vendor-prose: no module docstring")
     else:
         inserted = ["Inserted by the self-test.\n"]
         prose = "".join(lines[: end - 1] + inserted + lines[end - 1 :])
-        if implementation_digest(prose) != IMPLEMENTATION_DIGEST:
+        if implementation_digest(prose) != found:
             failures.append("vendor-prose: a docstring edit moved the digest")
-    if implementation_digest(here + "\n_ = None\n") == IMPLEMENTATION_DIGEST:
+    if implementation_digest(here + "\n_ = None\n") == found:
         failures.append("vendor-logic: a code edit left the digest alone")
     reblessed = here.replace(
         'IMPLEMENTATION_DIGEST = "' + IMPLEMENTATION_DIGEST + '"',
@@ -654,25 +790,21 @@ def self_test() -> list[str]:
     )
     if reblessed == here:
         failures.append("vendor-rebless: constant not found")
-    elif implementation_digest(reblessed) != IMPLEMENTATION_DIGEST:
+    elif implementation_digest(reblessed) != found:
         failures.append("vendor-rebless: the digest hashes its own value")
 
     if not failures:
         print(
             f"check-citation-nonr self-test: PASS ({counts['positive']} positive "
-            f"+ {counts['negative']} negative cases, 4 vendor-digest cases)"
+            f"+ {counts['negative']} negative cases, {counts['reader']} reader "
+            f"cases, {counts['cli']} command-line cases, 4 vendor-digest cases)"
         )
     return failures
 
 
 def main() -> int:
-    drift = check_vendored_copy()
-    if drift:
-        print("check-citation-nonr failed:", file=sys.stderr)
-        for error in drift:
-            print(f"  - {error}", file=sys.stderr)
-        return 1
-
+    # Arguments first, so --help answers in a copy whose digest has drifted:
+    # usage is what someone reaches for while fixing that copy.
     parser = argparse.ArgumentParser(
         description="CITATION.cff and .zenodo.json name the release version."
     )
@@ -684,6 +816,10 @@ def main() -> int:
     parser.add_argument("--self-test", action="store_true", help="run the fixtures")
     args = parser.parse_args()
 
+    # --self-test also runs ahead of the digest check: it is how an edit is
+    # tested before it is blessed, and a drift error alone would hide every
+    # fixture result. It cannot mask drift, because its own vendor-untouched
+    # case fails on the same mismatch and the run still exits 1.
     if args.self_test:
         failures = self_test()
         if failures:
@@ -692,6 +828,13 @@ def main() -> int:
                 print(f"  - {failure}", file=sys.stderr)
             return 1
         return 0
+
+    drift = check_vendored_copy()
+    if drift:
+        print("check-citation-nonr failed:", file=sys.stderr)
+        for error in drift:
+            print(f"  - {error}", file=sys.stderr)
+        return 1
 
     if args.source is None:
         parser.error(
