@@ -143,6 +143,7 @@ Summarize the result based on the command:
 ## Errors
 
 - Auth errors → suggest checking `.env` (`CF_ACCOUNT_ID`, `CF_API_TOKEN`)
+- Auth error (code 10000) on `tomarkdown` only, while other commands work → the token lacks Workers AI: Read or Write permission
 - Empty / broken crawl results on JS-heavy sites → suggest `--render`
 - `download` failing for an old job → likely past the 14-day retention window
 

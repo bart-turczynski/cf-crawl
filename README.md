@@ -88,7 +88,7 @@ deliberate run.
 You need:
 
 - **CF_ACCOUNT_ID** — found in the Cloudflare dashboard under any domain -> Overview -> right sidebar
-- **CF_API_TOKEN** — create at https://dash.cloudflare.com/profile/api-tokens with Browser Rendering: Edit permission
+- **CF_API_TOKEN** — create at https://dash.cloudflare.com/profile/api-tokens with Browser Rendering: Edit permission, plus Workers AI: Read (or Write) if you use `tomarkdown`
 
 ## Quick Start
 
