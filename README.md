@@ -35,9 +35,9 @@ corepack, `corepack enable` works too.
 
 ```bash
 pnpm install
-op inject --account my.1password.com -i .env.tpl -o .env && chmod 600 .env
-# Credentials come from 1Password (item "Cloudflare - API token" in vault Dev).
-# Without 1Password: cp .env.example .env and fill in your Cloudflare credentials.
+cp .env.example .env
+# Fill in your Cloudflare credentials in .env
+# Maintainer, with 1Password: op inject -f -i .env.tpl -o .env
 
 # Install the Claude Code skill (symlinks skill/ into your user-level skills
 # dir). Run from anywhere inside the clone; works on any machine and user, and
