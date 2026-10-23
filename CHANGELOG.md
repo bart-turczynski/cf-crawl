@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
 
 - Zenodo DOIs for the 4.1.0 archive, the first: concept DOI `10.5281/zenodo.23305244` (resolves to the latest release) and version DOI `10.5281/zenodo.23305245`, recorded in `CITATION.cff` and as a README badge and Citation section. Added only after doi.org resolved both.
 
+### Fixed
+
+- The README, `.env.example` and `skill/SKILL.md` now say that `tomarkdown` needs a token with Workers AI: Read or Write on top of Browser Rendering: Edit. They named only the latter, so a token set up as documented passed every other command and then failed `tomarkdown` with `Authentication error` (code 10000). Found in an end-to-end run of every command; the permission is the one Cloudflare's `/ai/tomarkdown` reference lists.
+
 ### Changed
 
 - **Node 26 is now the minimum**: `engines.node` moves from `>=22` to `>=26`, so a clone on Node 22–25 now falls outside the supported range and should upgrade Node before `pnpm install`. Node 22 left active LTS a year ago, and the CLI runs from a clone rather than from a registry, so no published consumer depends on the old floor.
