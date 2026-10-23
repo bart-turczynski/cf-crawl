@@ -3,7 +3,9 @@
 TypeScript CLI over the Cloudflare Browser Rendering API and Workers AI `tomarkdown`:
 async site crawls, synchronous single-page operations, and local file conversion.
 
-Runtime needs `.env` with `CF_ACCOUNT_ID` and `CF_API_TOKEN`; `.env.example` is the template.
+Runtime needs `.env` with `CF_ACCOUNT_ID` and `CF_API_TOKEN`. The maintainer generates it from
+`.env.tpl` with `op inject -f -i .env.tpl -o .env` (a file, not `op run`, because dotenv and
+`scripts/*.sh` read `.env`); `.env.example` is the template for everyone else.
 
 ESM, strict TypeScript. Local imports carry a `.js` extension over `.ts` sources.
 

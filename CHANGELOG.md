@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- `.env.tpl`, a 1Password template that `op inject` turns into `.env` for the maintainer; `.env.example` stays the setup route for everyone else.
 - Zenodo DOIs for the 4.1.0 archive, the first: concept DOI `10.5281/zenodo.23305244` (resolves to the latest release) and version DOI `10.5281/zenodo.23305245`, recorded in `CITATION.cff` and as a README badge and Citation section. Added only after doi.org resolved both.
 
 ### Changed
