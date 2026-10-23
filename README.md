@@ -37,7 +37,6 @@ corepack, `corepack enable` works too.
 pnpm install
 cp .env.example .env
 # Fill in your Cloudflare credentials in .env
-# Maintainer, with 1Password: op inject -f -i .env.tpl -o .env
 
 # Install the Claude Code skill (symlinks skill/ into your user-level skills
 # dir). Run from anywhere inside the clone; works on any machine and user, and
